@@ -8,7 +8,7 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.articulo import Articulo
 from app.schemas.articulo import (
-    ArticuloCreate, ArticuloUpdate, ArticuloResponse, OfertaResponse
+    ArticuloCreate, ArticuloUpdate, ArticuloResponse
 )
 
 router = APIRouter(
@@ -50,11 +50,7 @@ def listar_articulos(
     return articulos
 
 
-@router.get("/ofertas", response_model=List[ArticuloResponse])
-def ofertas_activas(db: Session = Depends(get_db)):
-    """Obtener ofertas activas (artículos con stock > 0)"""
-    articulos = db.query(Articulo).filter(Articulo.stock > 0).all()
-    return articulos
+
 
 
 @router.get("/search", response_model=List[ArticuloResponse])
@@ -137,3 +133,5 @@ def actualizar_stock(
     db.commit()
     
     return {"message": f"Stock actualizado a {cantidad}"}
+
+

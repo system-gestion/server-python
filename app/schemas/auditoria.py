@@ -41,6 +41,7 @@ class SesionLogResponse(SesionLogBase):
     num_sesion: int
     cod_usuario: Optional[int] = None
     nombre_usuario: Optional[str] = None
+    correo_usuario: Optional[str] = None
     detalles: List[DetalleSesionResponse] = []
 
     class Config:

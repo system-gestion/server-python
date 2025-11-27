@@ -1,17 +1,3 @@
-"""
-Seeders para poblar la base de datos con datos de prueba.
-Ejecutar con: python -m app.seeders.seed
-
-ESTADOS DE PEDIDO:
-- 1 = Pendiente (pending)
-- 2 = Completado (completed)
-- 3 = Cancelado (cancelled)
-
-ESTADOS DE DETALLE PEDIDO:
-- 0 = Quitado/Inactivo
-- 1 = Activo
-"""
-
 from datetime import date
 from sqlalchemy.orm import Session
 import bcrypt
@@ -27,7 +13,6 @@ from app.models.sesion_log import SesionLog
 from app.models.detalle_sesion import DetalleSesion
 
 
-
 def hash_password(password: str) -> str:
     """Hashea una contraseña usando bcrypt"""
     password_bytes = password.encode('utf-8')
@@ -38,9 +23,17 @@ def hash_password(password: str) -> str:
 
 def clear_database(db: Session):
     """Limpia todas las tablas de la base de datos"""
-    print("🗑️  Limpiando base de datos...")
+    print("Limpiando base de datos...")
     
     # Eliminar en orden inverso de dependencias
+    from sqlalchemy import text
+    try:
+        db.execute(text("DROP TABLE IF EXISTS oferta_cliente CASCADE"))
+        db.commit()
+    except Exception as e:
+        print(f"⚠️ No se pudo eliminar tabla oferta_cliente: {e}")
+        db.rollback()
+
     db.query(DetalleSesion).delete()
     db.query(SesionLog).delete()
     db.query(DetallePedido).delete()
@@ -51,25 +44,27 @@ def clear_database(db: Session):
     db.query(Monitoreo).delete()
     
     db.commit()
-    print("✅ Base de datos limpiada")
+    print("Base de datos limpiada")
 
 
 def seed_clientes(db: Session):
     """Inserta clientes de prueba"""
-    print("👥 Insertando clientes...")
+    print("Insertando clientes...")
     
     clientes = [
         Cliente(
             cod_cliente="CLI001",
             nombre="Juan Pérez García",
             direccion="Av. Principal 123, Lima",
-            telefono="555-1234"
+            telefono="555-1234",
+            cod_usuario=4  # Luis (Cliente)
         ),
         Cliente(
             cod_cliente="CLI002",
             nombre="María López Rodríguez",
             direccion="Calle Los Olivos 456, Arequipa",
-            telefono="555-5678"
+            telefono="555-5678",
+            cod_usuario=6  # María (Cliente)
         ),
         Cliente(
             cod_cliente="CLI003",
@@ -101,15 +96,15 @@ def seed_articulos(db: Session):
     print("📦 Insertando artículos...")
     
     articulos = [
-        Articulo(cod_articulo=101, nombre="Laptop HP 15", pvp=2500.00, stock=15),
-        Articulo(cod_articulo=102, nombre="Mouse Logitech", pvp=45.50, stock=50),
+        Articulo(cod_articulo=101, nombre="Laptop HP 15", pvp=2500.00, stock=15, tipo_descuento=1, valor_descuento=200.00), # Descuento fijo
+        Articulo(cod_articulo=102, nombre="Mouse Logitech", pvp=45.50, stock=50, tipo_descuento=2, valor_descuento=10.0), # Descuento 10%
         Articulo(cod_articulo=103, nombre="Teclado Mecánico", pvp=120.00, stock=30),
         Articulo(cod_articulo=104, nombre="Monitor LG 24 pulgadas", pvp=680.00, stock=20),
         Articulo(cod_articulo=105, nombre="Impresora Canon", pvp=350.00, stock=12),
         Articulo(cod_articulo=106, nombre="Disco Duro 1TB", pvp=180.00, stock=40),
         Articulo(cod_articulo=107, nombre="Memoria RAM 16GB", pvp=280.00, stock=35),
         Articulo(cod_articulo=108, nombre="Webcam HD", pvp=95.00, stock=25),
-        Articulo(cod_articulo=109, nombre="Auriculares Bluetooth", pvp=75.00, stock=60),
+        Articulo(cod_articulo=109, nombre="Auriculares Bluetooth", pvp=75.00, stock=60, tipo_descuento=2, valor_descuento=15.0), # Descuento 15%
         Articulo(cod_articulo=110, nombre="Router WiFi", pvp=150.00, stock=18),
     ]
     
@@ -164,6 +159,17 @@ def seed_usuarios(db: Session):
             correo="luis@gmail.com",
             celular="999-777-888",
             fecha_ingreso=date(2024, 7, 5),
+            estado=1,
+            password=hash_password("123456")
+        ),
+        Usuario(
+            cod_usuario=6,
+            apellidos="López Rodríguez",
+            nombres="María",
+            nivel=3,  # Cliente
+            correo="maria.lopez@gmail.com",
+            celular="999-222-333",
+            fecha_ingreso=date(2024, 8, 10),
             estado=1,
             password=hash_password("123456")
         ),
@@ -275,13 +281,14 @@ def set_sequence_value(db: Session):
     # Solo para PostgreSQL
     if 'postgresql' in str(engine.url):
         from sqlalchemy import text
-        print("🔄 Actualizando secuencia de pedidos...")
+        print("🔄 Actualizando secuencias...")
         try:
             db.execute(text("SELECT setval('pedido_num_pedido_seq', (SELECT MAX(num_pedido) FROM pedido));"))
+            db.execute(text("SELECT setval('usuario_cod_usuario_seq', (SELECT MAX(cod_usuario) FROM usuario));"))
             db.commit()
-            print("✅ Secuencia actualizada correctamente")
+            print("✅ Secuencias actualizadas correctamente")
         except Exception as e:
-            print(f"⚠️ No se pudo actualizar la secuencia: {e}")
+            print(f"⚠️ No se pudo actualizar las secuencias: {e}")
 
 
 def run_seeders(clear_first: bool = True):
@@ -299,9 +306,9 @@ def run_seeders(clear_first: bool = True):
             clear_database(db)
         
         # Ejecutar seeders en orden
+        seed_usuarios(db)
         seed_clientes(db)
         seed_articulos(db)
-        seed_usuarios(db)
         seed_pedidos(db)
         
         # Actualizar secuencias

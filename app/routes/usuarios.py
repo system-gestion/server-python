@@ -33,12 +33,7 @@ def hash_password(password: str) -> str:
 @router.post("/", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
 def crear_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
     """Crear nuevo usuario"""
-    # Verificar si ya existe
-    if db.query(Usuario).filter(Usuario.cod_usuario == usuario.cod_usuario).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Usuario con código {usuario.cod_usuario} ya existe"
-        )
+
     
     if db.query(Usuario).filter(Usuario.correo == usuario.correo).first():
         raise HTTPException(
@@ -62,6 +57,7 @@ def listar_usuarios(
     limit: int = Query(100, description="Número máximo de registros"),
     estado: int = Query(None, ge=0, le=1, description="Filtrar por estado (0=inactivo, 1=activo)"),
     nivel: int = Query(None, ge=1, le=3, description="Filtrar por nivel (1=Supervisor, 2=Vendedor, 3=Cliente)"),
+    q: str = Query(None, description="Término de búsqueda (nombre, apellido o correo)"),
     db: Session = Depends(get_db)
 ):
     """Listar usuarios con filtros opcionales"""
@@ -71,6 +67,14 @@ def listar_usuarios(
         query = query.filter(Usuario.estado == estado)
     if nivel is not None:
         query = query.filter(Usuario.nivel == nivel)
+    if q:
+        query = query.filter(
+            or_(
+                Usuario.nombres.ilike(f"%{q}%"),
+                Usuario.apellidos.ilike(f"%{q}%"),
+                Usuario.correo.ilike(f"%{q}%")
+            )
+        )
     
     usuarios = query.offset(skip).limit(limit).all()
     return usuarios

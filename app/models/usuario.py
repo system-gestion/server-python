@@ -40,3 +40,10 @@ class Usuario(Base):
 
     # Relación con detalle_sesion
     detalles_sesion = relationship("DetalleSesion", back_populates="usuario")
+    
+    # Relación con cliente (Uno a Uno)
+    cliente = relationship("Cliente", back_populates="usuario", uselist=False)
+
+    @property
+    def cod_cliente(self):
+        return self.cliente.cod_cliente if self.cliente else None

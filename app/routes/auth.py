@@ -3,7 +3,7 @@ Rutas de Autenticación
 Login, Logout, Gestión de Sesiones
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import bcrypt
 from datetime import date
 
@@ -35,7 +35,7 @@ def login(credenciales: UsuarioLogin, db: Session = Depends(get_db)):
     - Retorna token y datos del usuario
     """
     # Buscar usuario por correo
-    usuario = db.query(Usuario).filter(Usuario.correo == credenciales.correo).first()
+    usuario = db.query(Usuario).options(joinedload(Usuario.cliente)).filter(Usuario.correo == credenciales.correo).first()
     
     if not usuario or not verify_password(credenciales.password, usuario.password):
         raise HTTPException(
@@ -111,7 +111,7 @@ def get_current_user(cod_usuario: int = Query(..., description="Código del usua
     """
     Obtiene los datos del usuario autenticado
     """
-    usuario = db.query(Usuario).filter(Usuario.cod_usuario == cod_usuario).first()
+    usuario = db.query(Usuario).options(joinedload(Usuario.cliente)).filter(Usuario.cod_usuario == cod_usuario).first()
     
     if not usuario:
         raise HTTPException(

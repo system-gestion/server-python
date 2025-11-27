@@ -9,7 +9,7 @@ import uvicorn
 
 from app.config import settings
 from app.database import init_db
-from app.routes import auth, clientes, pedidos, usuarios, articulos, auditoria, comisiones
+from app.routes import auth, clientes, pedidos, usuarios, articulos, auditoria, comisiones, storage, ofertas
 
 # Crear la instancia de FastAPI
 app = FastAPI(
@@ -69,6 +69,8 @@ app.include_router(pedidos.router)
 app.include_router(articulos.router)
 app.include_router(auditoria.router)
 app.include_router(comisiones.router)
+app.include_router(ofertas.router)
+app.include_router(storage.router)
 
 
 # Punto de entrada para ejecutar la aplicación

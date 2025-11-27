@@ -19,6 +19,7 @@ class MeResponse(UsuarioBase):
     fecha_ingreso: date
     estado: int
     fecha_baja: Optional[date] = None
+    cod_cliente: Optional[str] = Field(None, examples=["CLI001"])
 
     class Config:
         from_attributes = True
