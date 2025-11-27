@@ -3,13 +3,14 @@ Aplicación principal FastAPI.
 Configura la aplicación, inicializa la base de datos y registra las rutas.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.config import settings
 from app.database import init_db
 from app.routes import auth, clientes, pedidos, usuarios, articulos, auditoria, comisiones, storage, ofertas
+from app.routes.auth import get_current_user_from_token
 
 # Crear la instancia de FastAPI
 app = FastAPI(
@@ -62,15 +63,18 @@ async def health_check():
 
 
 # Registrar los routers de las diferentes rutas
+# Rutas públicas
 app.include_router(auth.router)
-app.include_router(usuarios.router)
-app.include_router(clientes.router)
-app.include_router(pedidos.router)
-app.include_router(articulos.router)
-app.include_router(auditoria.router)
-app.include_router(comisiones.router)
-app.include_router(ofertas.router)
-app.include_router(storage.router)
+
+# Rutas protegidas (requieren token)
+app.include_router(usuarios.router, dependencies=[Depends(get_current_user_from_token)])
+app.include_router(clientes.router, dependencies=[Depends(get_current_user_from_token)])
+app.include_router(pedidos.router, dependencies=[Depends(get_current_user_from_token)])
+app.include_router(articulos.router, dependencies=[Depends(get_current_user_from_token)])
+app.include_router(auditoria.router, dependencies=[Depends(get_current_user_from_token)])
+app.include_router(comisiones.router, dependencies=[Depends(get_current_user_from_token)])
+app.include_router(ofertas.router, dependencies=[Depends(get_current_user_from_token)])
+app.include_router(storage.router, dependencies=[Depends(get_current_user_from_token)])
 
 
 # Punto de entrada para ejecutar la aplicación

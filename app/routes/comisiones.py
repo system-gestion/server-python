@@ -12,6 +12,7 @@ from app.models.usuario import Usuario
 from app.models.pedido import Pedido
 from app.models.cliente import Cliente
 from app.schemas.comision import ComisionResponse, ComisionDetalle
+from app.core.security import registrar_auditoria, get_token
 
 router = APIRouter(
     prefix="/comisiones",
@@ -25,7 +26,8 @@ def calcular_comision_vendedor(
     fecha_inicio: date = Query(default_factory=lambda: date.today() - timedelta(days=30), description="Fecha inicial del período de cálculo"),
     fecha_fin: date = Query(default_factory=date.today, description="Fecha final del período de cálculo"),
     porcentaje: float = Query(default=5.0, ge=0, le=100, description="Porcentaje de comisión a aplicar"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    token: str = Depends(get_token)
 ):
     """Calcular comisiones de un vendedor en un período"""
     # Verificar que el usuario es vendedor
@@ -57,6 +59,9 @@ def calcular_comision_vendedor(
     cantidad_pedidos = len(pedidos)
     comision_total = total_ventas * (porcentaje / 100)
     
+    # Registrar auditoría (0 = Consulta)
+    registrar_auditoria(db, token, "comision", 0)
+    
     return {
         "cod_usuario": usuario.cod_usuario,
         "nombre_vendedor": f"{usuario.nombres} {usuario.apellidos}",
@@ -75,7 +80,8 @@ def detalle_comisiones_vendedor(
     fecha_inicio: date = Query(default_factory=lambda: date.today() - timedelta(days=30), description="Fecha inicial del período de detalle"),
     fecha_fin: date = Query(default_factory=date.today, description="Fecha final del período de detalle"),
     porcentaje: float = Query(default=5.0, ge=0, le=100, description="Porcentaje de comisión a aplicar"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    token: str = Depends(get_token)
 ):
     """Obtener detalle de cada pedido para comisiones"""
     usuario = db.query(Usuario).filter(Usuario.cod_usuario == cod_usuario).first()
@@ -107,6 +113,9 @@ def detalle_comisiones_vendedor(
             "comision": pedido.importe * (porcentaje / 100)
         })
     
+    # Registrar auditoría (0 = Consulta)
+    registrar_auditoria(db, token, "comision", 0)
+    
     return detalles
 
 
@@ -115,7 +124,8 @@ def resumen_comisiones_todos(
     fecha_inicio: date = Query(default_factory=lambda: date.today() - timedelta(days=30), description="Fecha inicial del período de resumen"),
     fecha_fin: date = Query(default_factory=date.today, description="Fecha final del período de resumen"),
     porcentaje: float = Query(default=5.0, ge=0, le=100, description="Porcentaje de comisión a aplicar"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    token: str = Depends(get_token)
 ):
     """Resumen de comisiones de todos los vendedores"""
     vendedores = db.query(Usuario).filter(Usuario.nivel == 2, Usuario.estado == 1).all()
@@ -143,5 +153,8 @@ def resumen_comisiones_todos(
             "periodo_inicio": fecha_inicio,
             "periodo_fin": fecha_fin
         })
+    
+    # Registrar auditoría (0 = Consulta)
+    registrar_auditoria(db, token, "comision", 0)
     
     return resultado

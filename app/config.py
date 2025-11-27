@@ -21,7 +21,9 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     
     # Configuración adicional
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "default-secret-key")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30000
     
     # Información del proyecto
     PROJECT_NAME: str = "FastAPI REST API"

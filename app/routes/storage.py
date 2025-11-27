@@ -1,7 +1,10 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends
+from sqlalchemy.orm import Session
 import requests
 import time
 from app.schemas.storage import UploadResponse
+from app.database import get_db
+from app.core.security import registrar_auditoria, get_token
 
 router = APIRouter(
     prefix="/storage",
@@ -12,7 +15,11 @@ FREEIMAGE_API_URL = "https://freeimage.host/json"
 AUTH_TOKEN = "acb3d08751cf59286697ee382500304c588ba131"
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    token: str = Depends(get_token)
+):
     """
     Sube una imagen a freeimage.host
     """
@@ -61,6 +68,9 @@ async def upload_image(file: UploadFile = File(...)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Error al subir imagen: {data.get('error', {}).get('message', 'Unknown error')}"
             )
+        
+        # Registrar auditoría (2 = Inserción)
+        registrar_auditoria(db, token, "storage", 2)
             
         return data
 
