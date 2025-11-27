@@ -145,8 +145,17 @@ def logout(
 
 
 @router.get("/me", response_model=MeResponse)
-def get_current_user_info(current_user: Usuario = Depends(get_current_user_from_token)):
+def get_current_user_info(
+    current_user: Usuario = Depends(get_current_user_from_token),
+    db: Session = Depends(get_db),
+    token: str = Depends(get_token)
+):
     """
     Obtiene los datos del usuario autenticado usando el token
     """
+    from app.core.security import registrar_auditoria
+    
+    # Registrar auditoría de consulta de perfil
+    registrar_auditoria(db, token, "usuario", 0)
+    
     return current_user

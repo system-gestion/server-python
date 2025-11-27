@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.sesion_log import SesionLog
 from app.models.detalle_sesion import DetalleSesion
 from app.models.usuario import Usuario
+from app.models.cliente import Cliente
 from app.schemas.auditoria import SesionLogResponse, DetalleSesionResponse, ActividadUsuario, SesionLogList
 from app.core.security import registrar_auditoria, get_token
 
@@ -96,8 +97,8 @@ def list_acciones(
     if accion is not None:
         query = query.filter(DetalleSesion.accion == accion)
     else:
-        # Excluir consultas (0) por defecto para limpiar la vista
-        query = query.filter(DetalleSesion.accion != 0)
+        # Excluir consultas (0) y rollbacks (4) por defecto para limpiar la vista
+        query = query.filter(DetalleSesion.accion.notin_([0, 4]))
 
     # Ordenar por fecha desc (usando hora y num_sesion/num_detalle como proxy de tiempo)
     # Lo ideal sería tener fecha en detalle, pero está en sesión.
@@ -116,8 +117,9 @@ def list_acciones(
             "datos_json": d.datos_json,
             "cod_usuario": d.cod_usuario,
             "num_sesion": d.num_sesion,
+            "rollback_realizado": d.rollback_realizado,
             "nombre_usuario": f"{d.usuario.nombres} {d.usuario.apellidos}" if d.usuario else "Desconocido",
-            "accion_text": ["Consulta", "Edición", "Inserción", "Eliminación"][d.accion] if 0 <= d.accion <= 3 else "Desconocido"
+            "accion_text": ["Consulta", "Edición", "Inserción", "Eliminación", "Rollback"][d.accion] if 0 <= d.accion <= 4 else "Desconocido"
         })
 
     # Registrar auditoría (0 = Consulta)
@@ -159,7 +161,11 @@ def get_sesion(
             sesion_dict["nombre_usuario"] = f"{primer_detalle.usuario.nombres} {primer_detalle.usuario.apellidos}"
             sesion_dict["correo_usuario"] = primer_detalle.usuario.correo
         
-        for d in sesion.detalles:
+        
+        # Ordenar detalles por hora descendente (más reciente primero)
+        detalles_ordenados = sorted(sesion.detalles, key=lambda d: d.hora if d.hora else datetime.min.time(), reverse=True)
+        
+        for d in detalles_ordenados:
             detalle_dict = {
                 "num_detalle": d.num_detalle,
                 "tabla": d.tabla,
@@ -167,8 +173,9 @@ def get_sesion(
                 "hora": d.hora,
                 "cod_usuario": d.cod_usuario,
                 "num_sesion": d.num_sesion,
+                "rollback_realizado": d.rollback_realizado,
                 "nombre_usuario": f"{d.usuario.nombres} {d.usuario.apellidos}" if d.usuario else None,
-                "accion_text": ["Consulta", "Edición", "Inserción", "Eliminación"][d.accion] if 0 <= d.accion <= 3 else "Desconocido"
+                "accion_text": ["Consulta", "Edición", "Inserción", "Eliminación", "Rollback"][d.accion] if 0 <= d.accion <= 4 else "Desconocido"
             }
             sesion_dict["detalles"].append(detalle_dict)
     
@@ -196,15 +203,33 @@ def rollback_accion(
     detalle = db.query(DetalleSesion).filter(DetalleSesion.num_detalle == num_detalle).first()
     if not detalle:
         raise HTTPException(status_code=404, detail="Detalle de auditoría no encontrado")
+    
+    # Verificar que no se haya hecho rollback ya
+    if detalle.rollback_realizado == 1:
+        raise HTTPException(status_code=400, detail="Esta acción ya fue revertida mediante rollback")
         
     if not detalle.datos_json:
         raise HTTPException(status_code=400, detail="No hay datos de snapshot para realizar rollback")
         
     try:
-        datos = json.loads(detalle.datos_json)
+        snapshot = json.loads(detalle.datos_json)
+        # Soporte para estructura antigua y nueva
+        if "old_data" in snapshot or "new_data" in snapshot:
+            old_data = snapshot.get("old_data")
+            new_data = snapshot.get("new_data")
+            # Para rollback usamos old_data si es edición/eliminación, o new_data si es inserción (para obtener ID)
+            datos = old_data if detalle.accion in [1, 3] else new_data
+        else:
+            # Estructura antigua (directa)
+            datos = snapshot
+            
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Error al decodificar snapshot de datos")
         
+    if not datos and detalle.accion != 0: # Consulta no necesita datos
+         raise HTTPException(status_code=400, detail="Snapshot de datos vacío, no se puede realizar rollback")
+
+    # Lógica de Rollback según tabla y acción
     # Lógica de Rollback según tabla y acción
     if detalle.tabla == "usuario":
         # Rollback de Inserción (2) -> Eliminar registro creado
@@ -238,19 +263,105 @@ def rollback_accion(
 
             for key, value in datos.items():
                 if hasattr(usuario, key) and key != "cod_usuario": # No actualizamos la PK
+                    # Manejo de fechas
+                    if key in ["fecha_ingreso", "fecha_baja"] and isinstance(value, str):
+                        try:
+                            if value == "None":
+                                value = None
+                            else:
+                                value = datetime.strptime(value, "%Y-%m-%d").date()
+                        except:
+                            pass # Mantener como string o lo que sea si falla
                     setattr(usuario, key, value)
             
             mensaje = f"Rollback: Usuario {usuario.cod_usuario} restaurado a estado previo"
 
         # Rollback de Eliminación (3) -> Re-insertar registro
         elif detalle.accion == 3:
-            # Hash password si es necesario (ya debería estar hasheado en el snapshot)
+            # Convertir fechas de string a date
+            if "fecha_ingreso" in datos and isinstance(datos["fecha_ingreso"], str):
+                 try:
+                     datos["fecha_ingreso"] = datetime.strptime(datos["fecha_ingreso"], "%Y-%m-%d").date()
+                 except:
+                     pass
+            if "fecha_baja" in datos and isinstance(datos["fecha_baja"], str):
+                 if datos["fecha_baja"] == "None":
+                     datos["fecha_baja"] = None
+                 else:
+                     try:
+                         datos["fecha_baja"] = datetime.strptime(datos["fecha_baja"], "%Y-%m-%d").date()
+                     except:
+                         datos["fecha_baja"] = None
+            
             nuevo_usuario = Usuario(**datos)
             db.add(nuevo_usuario)
             mensaje = f"Rollback: Usuario {datos.get('cod_usuario')} restaurado (reversión de eliminación)"
             
         else:
             raise HTTPException(status_code=400, detail=f"Acción {detalle.accion} no soportada para rollback")
+
+    elif detalle.tabla == "cliente":
+        # Rollback de Inserción (2) -> Eliminar cliente y usuario
+        if detalle.accion == 2:
+            cod_cliente = datos.get("cod_cliente")
+            cliente = db.query(Cliente).filter(Cliente.cod_cliente == cod_cliente).first()
+            if cliente:
+                cod_usuario = cliente.cod_usuario
+                db.delete(cliente)
+                
+                # Eliminar usuario también si existe
+                usuario = db.query(Usuario).filter(Usuario.cod_usuario == cod_usuario).first()
+                if usuario:
+                    db.delete(usuario)
+                    
+                mensaje = f"Rollback: Cliente {cod_cliente} y Usuario asociado eliminados"
+            else:
+                mensaje = f"Rollback: Cliente {cod_cliente} ya no existe"
+
+        # Rollback de Edición (1) -> Restaurar
+        elif detalle.accion == 1:
+            cod_cliente = datos.get("cod_cliente")
+            cliente = db.query(Cliente).filter(Cliente.cod_cliente == cod_cliente).first()
+            if not cliente:
+                 raise HTTPException(status_code=400, detail="Cliente no encontrado")
+            
+            # Restaurar datos cliente
+            if "nombre" in datos: cliente.nombre = datos["nombre"]
+            if "direccion" in datos: cliente.direccion = datos["direccion"]
+            if "telefono" in datos: cliente.telefono = datos["telefono"]
+            
+            # Restaurar datos usuario si existen en el snapshot
+            if cliente.usuario:
+                if "correo" in datos and datos["correo"]:
+                    cliente.usuario.correo = datos["correo"]
+                if "celular" in datos and datos["celular"]:
+                    cliente.usuario.celular = datos["celular"]
+                
+                # Sincronizar nombre usuario si cambió
+                if "nombre" in datos:
+                    nombre_completo = datos["nombre"].strip().split()
+                    cliente.usuario.apellidos = nombre_completo[0] if len(nombre_completo) > 0 else ""
+                    cliente.usuario.nombres = " ".join(nombre_completo[1:]) if len(nombre_completo) > 1 else nombre_completo[0] if len(nombre_completo) == 1 else ""
+
+            mensaje = f"Rollback: Cliente {cod_cliente} restaurado"
+
+        # Rollback de Eliminación (3) -> Recrear
+        elif detalle.accion == 3:
+             cod_usuario = datos.get("cod_usuario")
+             usuario = db.query(Usuario).filter(Usuario.cod_usuario == cod_usuario).first()
+             
+             if usuario:
+                 usuario.estado = 1 # Reactivar usuario
+             
+             # Recrear cliente
+             cliente_data = {k: v for k, v in datos.items() if k in ["cod_cliente", "nombre", "direccion", "telefono", "cod_usuario"]}
+             nuevo_cliente = Cliente(**cliente_data)
+             db.add(nuevo_cliente)
+             
+             mensaje = f"Rollback: Cliente {datos.get('cod_cliente')} restaurado"
+             
+        else:
+            raise HTTPException(status_code=400, detail=f"Acción {detalle.accion} no soportada")
 
     elif detalle.tabla == "pedido":
         # Rollback Inserción (2)
@@ -325,9 +436,11 @@ def rollback_accion(
     else:
         raise HTTPException(status_code=400, detail=f"Tabla {detalle.tabla} no soportada para rollback aún")
 
-    # Registrar auditoría del rollback (como una edición o inserción especial?)
-    # Por ahora lo registramos como edición genérica
-    registrar_auditoria(db, token, detalle.tabla, 1, datos={"rollback_ref": num_detalle})
+    # Marcar la acción original como rollback realizado
+    detalle.rollback_realizado = 1
+    
+    # Registrar auditoría del rollback con acción tipo 4 (rollback)
+    registrar_auditoria(db, token, detalle.tabla, 4, new_data={"rollback_ref": num_detalle, "message": mensaje})
     
     db.commit()
     return {"message": mensaje}

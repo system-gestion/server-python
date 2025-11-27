@@ -70,7 +70,12 @@ async def upload_image(
             )
         
         # Registrar auditoría (2 = Inserción)
-        registrar_auditoria(db, token, "storage", 2)
+        new_data = {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "url": data.get("image", {}).get("url")
+        }
+        registrar_auditoria(db, token, "storage", 2, new_data=new_data)
             
         return data
 

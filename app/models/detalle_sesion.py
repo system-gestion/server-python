@@ -16,8 +16,15 @@ class DetalleSesion(Base):
     Atributos:
         num_detalle (int): Número único del detalle [PK]
         tabla (str): Nombre de la tabla afectada
-        accion (int): Tipo de acción (0 = consulta, 1 = edición, 2 = inserción, 3 = eliminación)
+        accion (int): Tipo de acción 
+            0 = consulta
+            1 = edición
+            2 = inserción
+            3 = eliminación
+            4 = rollback
         hora (Time): Hora exacta de la acción
+        datos_json (str): Snapshot para rollback (JSON string)
+        rollback_realizado (int): Indica si se hizo rollback (0 = no, 1 = sí)
         cod_usuario (int): Código del usuario que realizó la acción [FK]
         num_sesion (int): Número de sesión asociada [FK]
     """
@@ -25,9 +32,10 @@ class DetalleSesion(Base):
 
     num_detalle = Column(Integer, primary_key=True, index=True)
     tabla = Column(String(100), nullable=False)
-    accion = Column(Integer, nullable=False)  # 0 = consulta, 1 = edición, 2 = inserción, 3 = eliminación
+    accion = Column(Integer, nullable=False)  # 0 = consulta, 1 = edición, 2 = inserción, 3 = eliminación, 4 = rollback
     hora = Column(Time, nullable=True, default=datetime.now().time)
     datos_json = Column(String, nullable=True)  # Snapshot para rollback (JSON string)
+    rollback_realizado = Column(Integer, nullable=False, default=0)  # 0 = no, 1 = sí
     cod_usuario = Column(Integer, ForeignKey("usuario.cod_usuario"), nullable=False)
     num_sesion = Column(Integer, ForeignKey("sesion_log.num_sesion"), nullable=False)
 

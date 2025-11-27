@@ -36,11 +36,24 @@ def crear_oferta(
     if not articulo:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
     
+    # Snapshot
+    old_data = {
+        "cod_articulo": articulo.cod_articulo,
+        "nombre": articulo.nombre,
+        "pvp": float(articulo.pvp),
+        "stock": articulo.stock,
+        "tipo_descuento": articulo.tipo_descuento,
+        "valor_descuento": float(articulo.valor_descuento) if articulo.valor_descuento else None
+    }
+    
     articulo.tipo_descuento = oferta.tipo_descuento
     articulo.valor_descuento = oferta.valor_descuento
     
     # Registrar auditoría (2 = Inserción - aunque es update en tabla articulo, conceptualmente es crear oferta)
-    registrar_auditoria(db, token, "oferta", 2)
+    new_data = old_data.copy()
+    new_data["tipo_descuento"] = oferta.tipo_descuento
+    new_data["valor_descuento"] = oferta.valor_descuento
+    registrar_auditoria(db, token, "oferta", 2, old_data=old_data, new_data=new_data)
     
     db.commit()
     db.refresh(articulo)
@@ -58,13 +71,26 @@ def actualizar_oferta(
     if not articulo:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
         
+    # Snapshot
+    old_data = {
+        "cod_articulo": articulo.cod_articulo,
+        "nombre": articulo.nombre,
+        "pvp": float(articulo.pvp),
+        "stock": articulo.stock,
+        "tipo_descuento": articulo.tipo_descuento,
+        "valor_descuento": float(articulo.valor_descuento) if articulo.valor_descuento else None
+    }
+
     if oferta_update.tipo_descuento is not None:
         articulo.tipo_descuento = oferta_update.tipo_descuento
     if oferta_update.valor_descuento is not None:
         articulo.valor_descuento = oferta_update.valor_descuento
         
     # Registrar auditoría (1 = Edición)
-    registrar_auditoria(db, token, "oferta", 1)
+    new_data = old_data.copy()
+    new_data["tipo_descuento"] = articulo.tipo_descuento
+    new_data["valor_descuento"] = float(articulo.valor_descuento) if articulo.valor_descuento else None
+    registrar_auditoria(db, token, "oferta", 1, old_data=old_data, new_data=new_data)
         
     db.commit()
     db.refresh(articulo)
@@ -81,11 +107,21 @@ def eliminar_oferta(
     if not articulo:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
     
+    # Snapshot
+    old_data = {
+        "cod_articulo": articulo.cod_articulo,
+        "tipo_descuento": articulo.tipo_descuento,
+        "valor_descuento": float(articulo.valor_descuento) if articulo.valor_descuento else None
+    }
+    
     articulo.tipo_descuento = 0
     articulo.valor_descuento = 0.0
     
     # Registrar auditoría (3 = Eliminación)
-    registrar_auditoria(db, token, "oferta", 3)
+    new_data = old_data.copy()
+    new_data["tipo_descuento"] = 0
+    new_data["valor_descuento"] = 0.0
+    registrar_auditoria(db, token, "oferta", 3, old_data=old_data, new_data=new_data)
     
     db.commit()
     return None

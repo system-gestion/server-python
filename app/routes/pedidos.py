@@ -66,7 +66,10 @@ def crear_pedido(
             db.add(nuevo_detalle)
     
     # Registrar auditoría (2 = Inserción)
-    registrar_auditoria(db, token, "pedido", 2, datos={"num_pedido": nuevo_pedido.num_pedido})
+    # Usamos los datos básicos ya que los detalles se guardaron pero no tenemos el objeto completo formateado aún
+    # Podríamos usar pedido_response después, pero registrar_auditoria se llama antes del commit final en el código original
+    # Moveremos la auditoría después de cargar la respuesta completa
+    pass
     
     db.commit()
     db.refresh(nuevo_pedido)
@@ -77,7 +80,18 @@ def crear_pedido(
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
     ).filter(Pedido.num_pedido == nuevo_pedido.num_pedido).first()
     
-    return _format_pedido_response(pedido_response)
+    formatted_response = _format_pedido_response(pedido_response)
+    
+    # Registrar auditoría (2 = Inserción) con datos completos
+    # Convertir fechas a string
+    audit_data = formatted_response.copy()
+    audit_data["fecha"] = str(audit_data["fecha"])
+    if audit_data.get("fecha_entrega"):
+        audit_data["fecha_entrega"] = str(audit_data["fecha_entrega"])
+        
+    registrar_auditoria(db, token, "pedido", 2, new_data=audit_data)
+    
+    return formatted_response
 
 
 @router.get("/", response_model=List[PedidoResponse])
@@ -116,7 +130,7 @@ def buscar_pedidos(
     )
     
     if cod_cliente:
-        query = query.filter(Pedido.cod_cliente == cod_cliente)
+        query = query.filter(Pedido.cod_cliente.ilike(f"%{cod_cliente}%"))
     if fecha_inicio:
         query = query.filter(Pedido.fecha >= fecha_inicio)
     if fecha_fin:
@@ -303,16 +317,23 @@ def actualizar_pedido(
         setattr(pedido, field, value)
     
     # Registrar auditoría (1 = Edición)
+    # Registrar auditoría (1 = Edición)
     original_data = {
         "num_pedido": pedido.num_pedido,
         "cod_cliente": pedido.cod_cliente,
         "fecha": str(pedido.fecha),
-        "fecha_entrega": str(pedido.fecha_entrega) if pedido.fecha_entrega else None,
         "importe": float(pedido.importe),
-        "estado": pedido.estado,
-        "observaciones": pedido.observaciones
+        "estado": pedido.estado
     }
-    registrar_auditoria(db, token, "pedido", 1, datos=original_data)
+    
+    # Datos nuevos
+    new_data = original_data.copy()
+    new_data.update(update_data)
+    # Asegurar que fechas sean strings
+    if "fecha" in new_data and not isinstance(new_data["fecha"], str):
+         new_data["fecha"] = str(new_data["fecha"])
+         
+    registrar_auditoria(db, token, "pedido", 1, old_data=original_data, new_data=new_data)
     
     db.commit()
     db.refresh(pedido)
@@ -351,12 +372,18 @@ def anular_pedido(
     ).update({"estado": 0})
     
     # Registrar auditoría (1 = Edición)
+    # Registrar auditoría (1 = Edición)
     original_data = {
         "num_pedido": pedido.num_pedido,
         "estado": estado_anterior,
         "was_cancelled": False
     }
-    registrar_auditoria(db, token, "pedido", 1, datos=original_data)
+    new_data = {
+        "num_pedido": pedido.num_pedido,
+        "estado": 3,
+        "was_cancelled": True
+    }
+    registrar_auditoria(db, token, "pedido", 1, old_data=original_data, new_data=new_data)
     
     db.commit()
     
@@ -386,7 +413,7 @@ def eliminar_pedido(
     if full_data.get("fecha_entrega"):
         full_data["fecha_entrega"] = str(full_data["fecha_entrega"])
         
-    registrar_auditoria(db, token, "pedido", 3, datos=full_data)
+    registrar_auditoria(db, token, "pedido", 3, old_data=full_data)
     
     db.commit()
     return None

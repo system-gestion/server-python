@@ -43,7 +43,7 @@ def decode_access_token(token: str) -> dict:
 
 import json
 
-def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, datos: Optional[dict] = None):
+def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, old_data: Optional[dict] = None, new_data: Optional[dict] = None):
     """
     Registra una acción de auditoría en la base de datos.
     
@@ -52,7 +52,8 @@ def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, datos:
         token (str): Token JWT del usuario
         tabla (str): Nombre de la tabla afectada
         accion (int): 0=Consulta, 1=Edición, 2=Inserción, 3=Eliminación
-        datos (dict, optional): Datos para rollback (snapshot)
+        old_data (dict, optional): Datos anteriores al cambio (para Update/Delete)
+        new_data (dict, optional): Datos nuevos tras el cambio (para Insert/Update)
     """
     # Decodificar token para obtener usuario y sesión
     payload = decode_access_token(token)
@@ -74,9 +75,15 @@ def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, datos:
             detail="Token incompleto para auditoría"
         )
         
+    # Estructurar datos para snapshot
+    datos_snapshot = {
+        "old_data": old_data,
+        "new_data": new_data
+    }
+    
     # Serializar datos a JSON si existen
     datos_json_str = None
-    if datos:
+    if old_data or new_data:
         try:
             # Convertir objetos date/datetime a string para serialización
             def json_serial(obj):
@@ -84,7 +91,7 @@ def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, datos:
                     return obj.isoformat()
                 raise TypeError (f"Type {type(obj)} not serializable")
                 
-            datos_json_str = json.dumps(datos, default=json_serial)
+            datos_json_str = json.dumps(datos_snapshot, default=json_serial)
         except Exception as e:
             print(f"Error serializando datos para auditoría: {e}")
             

@@ -52,7 +52,13 @@ def crear_usuario(
     db.flush() # Flush para obtener el ID
     
     # Registrar auditoría (2 = Inserción)
-    registrar_auditoria(db, token, "usuario", 2, datos={"cod_usuario": nuevo_usuario.cod_usuario})
+    # El usuario pide explícitamente guardar todo, incluso el password encriptado
+    audit_data = usuario_data.copy()
+    audit_data["cod_usuario"] = nuevo_usuario.cod_usuario
+    # Asegurar que fechas sean strings
+    if "fecha_ingreso" in audit_data:
+        audit_data["fecha_ingreso"] = str(audit_data["fecha_ingreso"])
+    registrar_auditoria(db, token, "usuario", 2, new_data=audit_data)
     
     db.commit()
     db.refresh(nuevo_usuario)
@@ -215,14 +221,31 @@ def actualizar_usuario(
         "apellidos": usuario.apellidos,
         "correo": usuario.correo,
         "nivel": usuario.nivel,
-        "estado": usuario.estado
+        "celular": usuario.celular,
+        "fecha_ingreso": str(usuario.fecha_ingreso),
+        "estado": usuario.estado,
+        "fecha_baja": str(usuario.fecha_baja) if usuario.fecha_baja else None,
+        "password": usuario.password
     }
 
     for field, value in update_data.items():
         setattr(usuario, field, value)
     
     # Registrar auditoría (1 = Edición)
-    registrar_auditoria(db, token, "usuario", 1, datos=datos_originales)
+    # Registrar auditoría (1 = Edición)
+    datos_nuevos = {
+        "cod_usuario": usuario.cod_usuario,
+        "nombres": usuario.nombres,
+        "apellidos": usuario.apellidos,
+        "correo": usuario.correo,
+        "nivel": usuario.nivel,
+        "celular": usuario.celular,
+        "fecha_ingreso": str(usuario.fecha_ingreso),
+        "estado": usuario.estado,
+        "fecha_baja": str(usuario.fecha_baja) if usuario.fecha_baja else None,
+        "password": usuario.password
+    }
+    registrar_auditoria(db, token, "usuario", 1, old_data=datos_originales, new_data=datos_nuevos)
     
     db.commit()
     db.refresh(usuario)
@@ -244,13 +267,28 @@ def desactivar_usuario(
         )
     
     # Snapshot estado original
-    datos_originales = {"estado": usuario.estado, "fecha_baja": usuario.fecha_baja}
+    # Snapshot estado original completo
+    datos_originales = {
+        "cod_usuario": usuario.cod_usuario,
+        "nombres": usuario.nombres,
+        "apellidos": usuario.apellidos,
+        "correo": usuario.correo,
+        "nivel": usuario.nivel,
+        "celular": usuario.celular,
+        "fecha_ingreso": str(usuario.fecha_ingreso),
+        "estado": usuario.estado,
+        "fecha_baja": str(usuario.fecha_baja) if usuario.fecha_baja else None,
+        "password": usuario.password
+    }
 
     usuario.estado = 0
     usuario.fecha_baja = date.today()
     
     # Registrar auditoría (1 = Edición)
-    registrar_auditoria(db, token, "usuario", 1, datos=datos_originales)
+    datos_nuevos = datos_originales.copy()
+    datos_nuevos["estado"] = usuario.estado
+    datos_nuevos["fecha_baja"] = str(usuario.fecha_baja) if usuario.fecha_baja else None
+    registrar_auditoria(db, token, "usuario", 1, old_data=datos_originales, new_data=datos_nuevos)
     
     db.commit()
     
@@ -272,13 +310,28 @@ def activar_usuario(
         )
     
     # Snapshot estado original
-    datos_originales = {"estado": usuario.estado, "fecha_baja": usuario.fecha_baja}
+    # Snapshot estado original completo
+    datos_originales = {
+        "cod_usuario": usuario.cod_usuario,
+        "nombres": usuario.nombres,
+        "apellidos": usuario.apellidos,
+        "correo": usuario.correo,
+        "nivel": usuario.nivel,
+        "celular": usuario.celular,
+        "fecha_ingreso": str(usuario.fecha_ingreso),
+        "estado": usuario.estado,
+        "fecha_baja": str(usuario.fecha_baja) if usuario.fecha_baja else None,
+        "password": usuario.password
+    }
 
     usuario.estado = 1
     usuario.fecha_baja = None
     
     # Registrar auditoría (1 = Edición)
-    registrar_auditoria(db, token, "usuario", 1, datos=datos_originales)
+    datos_nuevos = datos_originales.copy()
+    datos_nuevos["estado"] = usuario.estado
+    datos_nuevos["fecha_baja"] = None
+    registrar_auditoria(db, token, "usuario", 1, old_data=datos_originales, new_data=datos_nuevos)
     
     db.commit()
     
@@ -306,14 +359,17 @@ def eliminar_usuario(
         "apellidos": usuario.apellidos,
         "correo": usuario.correo,
         "nivel": usuario.nivel,
+        "celular": usuario.celular,
+        "fecha_ingreso": str(usuario.fecha_ingreso),
         "estado": usuario.estado,
-        "fecha_baja": usuario.fecha_baja
+        "fecha_baja": str(usuario.fecha_baja) if usuario.fecha_baja else None,
+        "password": usuario.password
     }
 
     db.delete(usuario)
     
     # Registrar auditoría (3 = Eliminación)
-    registrar_auditoria(db, token, "usuario", 3, datos=datos_originales)
+    registrar_auditoria(db, token, "usuario", 3, old_data=datos_originales)
     
     db.commit()
     return None

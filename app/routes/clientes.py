@@ -1,13 +1,17 @@
 """
 Rutas CRUD para Clientes
+Maneja la creación/actualización de Usuario y Cliente de forma sincronizada
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from typing import List
+from datetime import date
+import bcrypt
 
 from app.database import get_db
 from app.models.cliente import Cliente
+from app.models.usuario import Usuario
 from app.schemas.cliente import ClienteCreate, ClienteUpdate, ClienteResponse
 from app.core.security import registrar_auditoria, get_token
 
@@ -23,58 +27,127 @@ def crear_cliente(
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
-    """Crear nuevo cliente"""
+    """
+    Crear nuevo cliente y su usuario asociado (nivel 3)
+    """
+    # Verificar si el código de cliente ya existe
     if db.query(Cliente).filter(Cliente.cod_cliente == cliente.cod_cliente).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cliente {cliente.cod_cliente} ya existe"
         )
     
-    nuevo_cliente = Cliente(**cliente.model_dump())
+    # Verificar si el correo ya existe
+    if db.query(Usuario).filter(Usuario.correo == cliente.correo).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"El correo {cliente.correo} ya está registrado"
+        )
+    
+    # Crear usuario (nivel 3 = Cliente)
+    # Separar nombre en apellidos y nombres
+    nombre_completo = cliente.nombre.strip().split()
+    apellidos = nombre_completo[0] if len(nombre_completo) > 0 else ""
+    nombres = " ".join(nombre_completo[1:]) if len(nombre_completo) > 1 else nombre_completo[0] if len(nombre_completo) == 1 else ""
+    
+    # Hash password
+    hashed_password = bcrypt.hashpw(cliente.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    nuevo_usuario = Usuario(
+        apellidos=apellidos,
+        nombres=nombres,
+        nivel=3,  # Cliente
+        correo=cliente.correo,
+        celular=cliente.telefono, # Usar el teléfono como celular
+        fecha_ingreso=date.today(),
+        estado=1,  # Activo
+        password=hashed_password
+    )
+    db.add(nuevo_usuario)
+    db.flush()  # Para obtener el cod_usuario
+    
+    # Crear cliente
+    nuevo_cliente = Cliente(
+        cod_cliente=cliente.cod_cliente,
+        nombre=cliente.nombre,
+        direccion=cliente.direccion,
+        telefono=cliente.telefono,
+        cod_usuario=nuevo_usuario.cod_usuario
+    )
     db.add(nuevo_cliente)
     
     # Registrar auditoría (2 = Inserción)
-    registrar_auditoria(db, token, "cliente", 2)
+    registrar_auditoria(db, token, "cliente", 2, new_data={
+        "cod_cliente": cliente.cod_cliente,
+        "nombre": cliente.nombre,
+        "correo": cliente.correo,
+        "cod_usuario": nuevo_usuario.cod_usuario
+    })
     
     db.commit()
     db.refresh(nuevo_cliente)
-    return nuevo_cliente
+    db.refresh(nuevo_usuario)
+    
+    # Retornar con datos del usuario
+    return ClienteResponse(
+        cod_cliente=nuevo_cliente.cod_cliente,
+        nombre=nuevo_cliente.nombre,
+        direccion=nuevo_cliente.direccion,
+        telefono=nuevo_cliente.telefono,
+        cod_usuario=nuevo_usuario.cod_usuario,
+        correo=nuevo_usuario.correo,
+        celular=nuevo_usuario.celular,
+        estado=nuevo_usuario.estado
+    )
 
 
 @router.get("/", response_model=List[ClienteResponse])
 def listar_clientes(
+    q: str = Query(None, description="Búsqueda por código o nombre"),
+    estado: int = Query(None, description="Filtrar por estado del usuario (1=Activo, 0=Inactivo)"),
     skip: int = Query(0, description="Número de registros a omitir para paginación"),
     limit: int = Query(100, description="Número máximo de registros a retornar"),
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
-    """Listar todos los clientes"""
-    clientes = db.query(Cliente).offset(skip).limit(limit).all()
+    """
+    Listar clientes con búsqueda opcional
+    """
+    query = db.query(Cliente).join(Cliente.usuario)
     
-    # Registrar auditoría (0 = Consulta)
-    registrar_auditoria(db, token, "cliente", 0)
-    
-    return clientes
-
-
-@router.get("/search", response_model=List[ClienteResponse])
-def buscar_clientes(
-    q: str = Query(..., min_length=1, description="Término de búsqueda para nombre o código de cliente"),
-    db: Session = Depends(get_db),
-    token: str = Depends(get_token)
-):
-    """Buscar clientes por nombre o código"""
-    clientes = db.query(Cliente).filter(
-        or_(
-            Cliente.nombre.ilike(f"%{q}%"),
-            Cliente.cod_cliente.ilike(f"%{q}%")
+    # Si hay búsqueda, filtrar
+    if q:
+        query = query.filter(
+            or_(
+                Cliente.nombre.ilike(f"%{q}%"),
+                Cliente.cod_cliente.ilike(f"%{q}%"),
+                Usuario.correo.ilike(f"%{q}%")
+            )
         )
-    ).all()
+    
+    # Filtrar por estado si se proporciona
+    if estado is not None:
+        query = query.filter(Usuario.estado == estado)
+    
+    clientes = query.offset(skip).limit(limit).all()
     
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "cliente", 0)
     
-    return clientes
+    # Retornar con datos del usuario
+    return [
+        ClienteResponse(
+            cod_cliente=c.cod_cliente,
+            nombre=c.nombre,
+            direccion=c.direccion,
+            telefono=c.telefono,
+            cod_usuario=c.cod_usuario,
+            correo=c.usuario.correo if c.usuario else None,
+            celular=c.usuario.celular if c.usuario else None,
+            estado=c.usuario.estado if c.usuario else None
+        )
+        for c in clientes
+    ]
 
 
 @router.get("/{cod_cliente}", response_model=ClienteResponse)
@@ -83,8 +156,8 @@ def obtener_cliente(
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
-    """Obtener un cliente específico"""
-    cliente = db.query(Cliente).filter(Cliente.cod_cliente == cod_cliente).first()
+    """Obtener un cliente específico con sus datos de usuario"""
+    cliente = db.query(Cliente).options(joinedload(Cliente.usuario)).filter(Cliente.cod_cliente == cod_cliente).first()
     if not cliente:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -94,7 +167,16 @@ def obtener_cliente(
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "cliente", 0)
     
-    return cliente
+    return ClienteResponse(
+        cod_cliente=cliente.cod_cliente,
+        nombre=cliente.nombre,
+        direccion=cliente.direccion,
+        telefono=cliente.telefono,
+        cod_usuario=cliente.cod_usuario,
+        correo=cliente.usuario.correo if cliente.usuario else None,
+        celular=cliente.usuario.celular if cliente.usuario else None,
+        estado=cliente.usuario.estado if cliente.usuario else None
+    )
 
 
 @router.put("/{cod_cliente}", response_model=ClienteResponse)
@@ -104,24 +186,92 @@ def actualizar_cliente(
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
-    """Actualizar datos de cliente"""
-    cliente = db.query(Cliente).filter(Cliente.cod_cliente == cod_cliente).first()
+    """
+    Actualizar datos de cliente y su usuario asociado
+    """
+    cliente = db.query(Cliente).options(joinedload(Cliente.usuario)).filter(Cliente.cod_cliente == cod_cliente).first()
     if not cliente:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Cliente {cod_cliente} no encontrado"
         )
     
-    update_data = cliente_update.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(cliente, field, value)
+    # Snapshot
+    old_data = {
+        "cod_cliente": cliente.cod_cliente,
+        "nombre": cliente.nombre,
+        "direccion": cliente.direccion,
+        "telefono": cliente.telefono,
+        "cod_usuario": cliente.cod_usuario,
+        "correo": cliente.usuario.correo if cliente.usuario else None,
+        "celular": cliente.usuario.celular if cliente.usuario else None
+    }
+
+    # Actualizar datos del cliente
+    if cliente_update.nombre:
+        cliente.nombre = cliente_update.nombre
+        # Actualizar también el nombre del usuario
+        if cliente.usuario:
+            nombre_completo = cliente_update.nombre.strip().split()
+            cliente.usuario.apellidos = nombre_completo[0] if len(nombre_completo) > 0 else ""
+            cliente.usuario.nombres = " ".join(nombre_completo[1:]) if len(nombre_completo) > 1 else nombre_completo[0] if len(nombre_completo) == 1 else ""
+    
+    if cliente_update.direccion is not None:
+        cliente.direccion = cliente_update.direccion
+    
+    if cliente_update.telefono is not None:
+        cliente.telefono = cliente_update.telefono
+        # Sincronizar con celular si existe usuario
+        if cliente.usuario:
+            cliente.usuario.celular = cliente_update.telefono
+    
+    # Actualizar datos del usuario si existen
+    if cliente.usuario:
+        if cliente_update.correo:
+            # Verificar que el correo no esté en uso por otro usuario
+            existing = db.query(Usuario).filter(
+                Usuario.correo == cliente_update.correo,
+                Usuario.cod_usuario != cliente.usuario.cod_usuario
+            ).first()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El correo {cliente_update.correo} ya está en uso"
+                )
+            cliente.usuario.correo = cliente_update.correo
+        
+        # Eliminamos la actualización directa de celular desde el payload de usuario
+        # ya que se maneja a través de cliente.telefono
+        
+        if cliente_update.password:
+            hashed_password = bcrypt.hashpw(cliente_update.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            cliente.usuario.password = hashed_password
     
     # Registrar auditoría (1 = Edición)
-    registrar_auditoria(db, token, "cliente", 1)
+    new_data = {
+        "cod_cliente": cliente.cod_cliente,
+        "nombre": cliente.nombre,
+        "direccion": cliente.direccion,
+        "telefono": cliente.telefono,
+        "cod_usuario": cliente.cod_usuario,
+        "correo": cliente.usuario.correo if cliente.usuario else None,
+        "celular": cliente.usuario.celular if cliente.usuario else None
+    }
+    registrar_auditoria(db, token, "cliente", 1, old_data=old_data, new_data=new_data)
     
     db.commit()
     db.refresh(cliente)
-    return cliente
+    
+    return ClienteResponse(
+        cod_cliente=cliente.cod_cliente,
+        nombre=cliente.nombre,
+        direccion=cliente.direccion,
+        telefono=cliente.telefono,
+        cod_usuario=cliente.cod_usuario,
+        correo=cliente.usuario.correo if cliente.usuario else None,
+        celular=cliente.usuario.celular if cliente.usuario else None,
+        estado=cliente.usuario.estado if cliente.usuario else None
+    )
 
 
 @router.delete("/{cod_cliente}", status_code=status.HTTP_204_NO_CONTENT)
@@ -130,18 +280,30 @@ def eliminar_cliente(
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
-    """Eliminar cliente"""
-    cliente = db.query(Cliente).filter(Cliente.cod_cliente == cod_cliente).first()
+    """Eliminar cliente (desactiva el usuario asociado en lugar de eliminarlo)"""
+    cliente = db.query(Cliente).options(joinedload(Cliente.usuario)).filter(Cliente.cod_cliente == cod_cliente).first()
     if not cliente:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Cliente {cod_cliente} no encontrado"
         )
     
+    # Desactivar usuario en lugar de eliminar
+    if cliente.usuario:
+        cliente.usuario.estado = 0
+    
+    # Eliminar cliente
     db.delete(cliente)
     
     # Registrar auditoría (3 = Eliminación)
-    registrar_auditoria(db, token, "cliente", 3)
+    old_data = {
+        "cod_cliente": cliente.cod_cliente,
+        "nombre": cliente.nombre,
+        "direccion": cliente.direccion,
+        "telefono": cliente.telefono,
+        "cod_usuario": cliente.cod_usuario
+    }
+    registrar_auditoria(db, token, "cliente", 3, old_data=old_data)
     
     db.commit()
     return None

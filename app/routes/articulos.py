@@ -35,7 +35,7 @@ def crear_articulo(
     db.add(nuevo_articulo)
     
     # Registrar auditoría (2 = Inserción)
-    registrar_auditoria(db, token, "articulo", 2)
+    registrar_auditoria(db, token, "articulo", 2, new_data=articulo.model_dump())
     
     db.commit()
     db.refresh(nuevo_articulo)
@@ -116,12 +116,24 @@ def actualizar_articulo(
             detail=f"Artículo {cod_articulo} no encontrado"
         )
     
+    # Snapshot
+    old_data = {
+        "cod_articulo": articulo.cod_articulo,
+        "nombre": articulo.nombre,
+        "pvp": float(articulo.pvp),
+        "stock": articulo.stock,
+        "tipo_descuento": articulo.tipo_descuento,
+        "valor_descuento": float(articulo.valor_descuento) if articulo.valor_descuento else None
+    }
+
     update_data = articulo_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(articulo, field, value)
     
     # Registrar auditoría (1 = Edición)
-    registrar_auditoria(db, token, "articulo", 1)
+    new_data = old_data.copy()
+    new_data.update(update_data)
+    registrar_auditoria(db, token, "articulo", 1, old_data=old_data, new_data=new_data)
     
     db.commit()
     db.refresh(articulo)
@@ -145,7 +157,13 @@ def eliminar_articulo(
     db.delete(articulo)
     
     # Registrar auditoría (3 = Eliminación)
-    registrar_auditoria(db, token, "articulo", 3)
+    old_data = {
+        "cod_articulo": articulo.cod_articulo,
+        "nombre": articulo.nombre,
+        "pvp": articulo.pvp,
+        "stock": articulo.stock
+    }
+    registrar_auditoria(db, token, "articulo", 3, old_data=old_data)
     
     db.commit()
     return None
@@ -166,10 +184,22 @@ def actualizar_stock(
             detail=f"Artículo {cod_articulo} no encontrado"
         )
     
+    # Snapshot
+    old_data = {
+        "cod_articulo": articulo.cod_articulo,
+        "nombre": articulo.nombre,
+        "pvp": float(articulo.pvp),
+        "stock": articulo.stock,
+        "tipo_descuento": articulo.tipo_descuento,
+        "valor_descuento": float(articulo.valor_descuento) if articulo.valor_descuento else None
+    }
+
     articulo.stock = cantidad
     
     # Registrar auditoría (1 = Edición)
-    registrar_auditoria(db, token, "articulo", 1)
+    new_data = old_data.copy()
+    new_data["stock"] = cantidad
+    registrar_auditoria(db, token, "articulo", 1, old_data=old_data, new_data=new_data)
     
     db.commit()
     

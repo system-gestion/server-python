@@ -8,9 +8,10 @@ from typing import Optional, List
 
 class DetalleSesionBase(BaseModel):
     tabla: str = Field(..., max_length=100)
-    accion: int = Field(..., ge=0, le=3, description="0=Consulta, 1=Edición, 2=Inserción, 3=Eliminación")
+    accion: int = Field(..., ge=0, le=4, description="0=Consulta, 1=Edición, 2=Inserción, 3=Eliminación, 4=Rollback")
     hora: Optional[time] = None
     datos_json: Optional[str] = None
+    rollback_realizado: int = Field(default=0, ge=0, le=1, description="0=No, 1=Sí")
     cod_usuario: int
     num_sesion: int
 
@@ -24,6 +25,7 @@ class DetalleSesionResponse(DetalleSesionBase):
     nombre_usuario: Optional[str] = None
     accion_text: Optional[str] = None
     datos_json: Optional[str] = None
+    rollback_realizado: Optional[int] = 0
 
     class Config:
         from_attributes = True

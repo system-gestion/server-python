@@ -47,50 +47,6 @@ def clear_database(db: Session):
     print("Base de datos limpiada")
 
 
-def seed_clientes(db: Session):
-    """Inserta clientes de prueba"""
-    print("Insertando clientes...")
-    
-    clientes = [
-        Cliente(
-            cod_cliente="CLI001",
-            nombre="Juan Pérez García",
-            direccion="Av. Principal 123, Lima",
-            telefono="555-1234",
-            cod_usuario=4  # Luis (Cliente)
-        ),
-        Cliente(
-            cod_cliente="CLI002",
-            nombre="María López Rodríguez",
-            direccion="Calle Los Olivos 456, Arequipa",
-            telefono="555-5678",
-            cod_usuario=6  # María (Cliente)
-        ),
-        Cliente(
-            cod_cliente="CLI003",
-            nombre="Carlos Mendoza Silva",
-            direccion="Jr. Las Flores 789, Cusco",
-            telefono="555-9012"
-        ),
-        Cliente(
-            cod_cliente="CLI004",
-            nombre="Ana Torres Vega",
-            direccion="Av. Los Pinos 321, Trujillo",
-            telefono="555-3456"
-        ),
-        Cliente(
-            cod_cliente="CLI005",
-            nombre="Roberto Sánchez Cruz",
-            direccion="Calle San Martín 654, Piura",
-            telefono="555-7890"
-        ),
-    ]
-    
-    db.add_all(clientes)
-    db.commit()
-    print(f"✅ {len(clientes)} clientes insertados")
-
-
 def seed_articulos(db: Session):
     """Inserta artículos de prueba"""
     print("📦 Insertando artículos...")
@@ -111,7 +67,6 @@ def seed_articulos(db: Session):
     db.add_all(articulos)
     db.commit()
     print(f"✅ {len(articulos)} artículos insertados")
-
 
 def seed_usuarios(db: Session):
     """Inserta usuarios de prueba"""
@@ -153,34 +108,56 @@ def seed_usuarios(db: Session):
         ),
         Usuario(
             cod_usuario=4,
-            apellidos="Rosales",
-            nombres="Luis",
+            apellidos="Pérez García",
+            nombres="Juan",
             nivel=3,  # Cliente
-            correo="luis@gmail.com",
-            celular="999-777-888",
+            correo="juan@gmail.com",
+            celular="555-1234",
             fecha_ingreso=date(2024, 7, 5),
             estado=1,
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=6,
+            cod_usuario=5,
             apellidos="López Rodríguez",
             nombres="María",
             nivel=3,  # Cliente
-            correo="maria.lopez@gmail.com",
-            celular="999-222-333",
+            correo="maria@gmail.com",
+            celular="555-5678",
             fecha_ingreso=date(2024, 8, 10),
             estado=1,
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=5,
+            cod_usuario=6,
+            apellidos="Mendoza Silva",
+            nombres="Carlos",
+            nivel=3,  # Cliente
+            correo="carlos@gmail.com",
+            celular="555-9012",
+            fecha_ingreso=date(2024, 9, 1),
+            estado=1,
+            password=hash_password("123456")
+        ),
+        Usuario(
+            cod_usuario=7,
+            apellidos="Torres Vega",
+            nombres="Ana",
+            nivel=3,  # Cliente
+            correo="ana.torres@gmail.com",
+            celular="555-3456",
+            fecha_ingreso=date(2024, 10, 5),
+            estado=1,
+            password=hash_password("123456")
+        ),
+        Usuario(
+            cod_usuario=8,
             apellidos="Sánchez Cruz",
-            nombres="Laura Patricia",
-            nivel=1,  # Supervisor
-            correo="laura@gmail.com",
-            celular="999-999-000",
-            fecha_ingreso=date(2023, 11, 1),
+            nombres="Roberto",
+            nivel=3,  # Cliente
+            correo="roberto@gmail.com",
+            celular="555-7890",
+            fecha_ingreso=date(2024, 11, 1),
             estado=1,
             password=hash_password("123456")
         ),
@@ -190,10 +167,55 @@ def seed_usuarios(db: Session):
     db.commit()
     print(f"✅ {len(usuarios)} usuarios insertados")
     print("\n📝 Credenciales de prueba:")
-    print("   Supervisor: maria.garcia@example.com / supervisor123")
-    print("   Vendedor: carlos.rodriguez@example.com / vendedor123")
-    print("   Cliente: roberto.torres@example.com / cliente123")
+    print("   Supervisor: erick@gmail.com / 123456")
+    print("   Vendedor: adriano@gmail.com / 123456")
+    print("   Cliente: juan@gmail.com / 123456")
 
+def seed_clientes(db: Session):
+    """Inserta clientes de prueba (sincronizados con usuarios nivel 3)"""
+    print("👥 Insertando clientes...")
+    
+    clientes = [
+        Cliente(
+            cod_cliente="CLI001",
+            nombre="Juan Pérez García",
+            direccion="Av. Principal 123, Lima",
+            telefono="555-1234",
+            cod_usuario=4  # Juan (Cliente)
+        ),
+        Cliente(
+            cod_cliente="CLI002",
+            nombre="María López Rodríguez",
+            direccion="Calle Los Olivos 456, Arequipa",
+            telefono="555-5678",
+            cod_usuario=5  # María (Cliente)
+        ),
+        Cliente(
+            cod_cliente="CLI003",
+            nombre="Carlos Mendoza Silva",
+            direccion="Jr. Las Flores 789, Cusco",
+            telefono="555-9012",
+            cod_usuario=6  # Carlos (Cliente)
+        ),
+        Cliente(
+            cod_cliente="CLI004",
+            nombre="Ana Torres Vega",
+            direccion="Av. Los Pinos 321, Trujillo",
+            telefono="555-3456",
+            cod_usuario=7  # Ana (Cliente)
+        ),
+        Cliente(
+            cod_cliente="CLI005",
+            nombre="Roberto Sánchez Cruz",
+            direccion="Calle San Martín 654, Piura",
+            telefono="555-7890",
+            cod_usuario=8  # Roberto (Cliente)
+        ),
+    ]
+    
+    db.add_all(clientes)
+    db.commit()
+    print(f"✅ {len(clientes)} clientes insertados")
 
 def seed_pedidos(db: Session):
     """Inserta pedidos con detalles de prueba"""
