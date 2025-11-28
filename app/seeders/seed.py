@@ -22,29 +22,25 @@ def hash_password(password: str) -> str:
 
 
 def clear_database(db: Session):
-    """Limpia todas las tablas de la base de datos"""
-    print("Limpiando base de datos...")
+    """Elimina todas las tablas y las vuelve a crear"""
+    print("🗑️ Eliminando base de datos...")
     
-    # Eliminar en orden inverso de dependencias
+    # Eliminar tabla específica que podría dar problemas
     from sqlalchemy import text
     try:
         db.execute(text("DROP TABLE IF EXISTS oferta_cliente CASCADE"))
         db.commit()
     except Exception as e:
         print(f"⚠️ No se pudo eliminar tabla oferta_cliente: {e}")
-        db.rollback()
 
-    db.query(DetalleSesion).delete()
-    db.query(SesionLog).delete()
-    db.query(DetallePedido).delete()
-    db.query(Pedido).delete()
-    db.query(Articulo).delete()
-    db.query(Cliente).delete()
-    db.query(Usuario).delete()
-    db.query(Monitoreo).delete()
-    
-    db.commit()
-    print("Base de datos limpiada")
+    # Eliminar todas las tablas mapeadas
+    Base.metadata.drop_all(bind=engine)
+    print("✅ Tablas eliminadas")
+
+    # Crear todas las tablas nuevamente
+    print("🏗️ Recreando tablas...")
+    Base.metadata.create_all(bind=engine)
+    print("✅ Tablas creadas correctamente")
 
 
 def seed_articulos(db: Session):
@@ -319,8 +315,7 @@ def run_seeders(clear_first: bool = True):
     print("🌱 INICIANDO SEEDERS")
     print("=" * 60)
     
-    # Crear todas las tablas si no existen
-    Base.metadata.create_all(bind=engine)
+
     
     db = SessionLocal()
     try:
