@@ -40,9 +40,13 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    # Importar todos los modelos aquí para que sean registrados con Base
-    from app.models import cliente, articulo, pedido, detalle_pedido, monitoreo, usuario, sesion_log, detalle_sesion
-    
-    # Crear todas las tablas
-    Base.metadata.create_all(bind=engine)
-    print("✅ Tablas de base de datos creadas exitosamente")
+    """Verifica la conexión a la base de datos"""
+    try:
+        # Intentar una conexión simple
+        with engine.connect() as connection:
+            from sqlalchemy import text
+            connection.execute(text("SELECT 1"))
+        print("✅ Conexión a base de datos exitosa")
+    except Exception as e:
+        print(f"❌ Error al conectar a la base de datos: {e}")
+        raise e

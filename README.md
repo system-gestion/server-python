@@ -105,8 +105,3 @@ Una vez iniciado el servidor, puedes acceder a la documentación interactiva:
 
   - **Swagger UI:** `http://TU_IP_O_DOMINIO:8000/docs`
   - **ReDoc:** `http://TU_IP_O_DOMINIO:8000/redoc`
-
-<!-- end list -->
-
-```
-```
