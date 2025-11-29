@@ -36,6 +36,12 @@ docker run -d \
   postgres:15-alpine
 ```
 
+Solo si el docker ya fue creado, puedes usar el siguiente comando para iniciar el docker:
+
+```bash
+docker start db_system_gestion
+``` 
+
 #### Paso 3: Clonar y Preparar el Proyecto
 
 Ahora traemos el código.
