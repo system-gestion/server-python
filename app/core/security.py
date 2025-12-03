@@ -55,8 +55,10 @@ def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, old_da
         old_data (dict, optional): Datos anteriores al cambio (para Update/Delete)
         new_data (dict, optional): Datos nuevos tras el cambio (para Insert/Update)
     """
+    print(f"DEBUG AUDIT: Iniciando registrar_auditoria - tabla={tabla}, accion={accion}")
     # Decodificar token para obtener usuario y sesión
     payload = decode_access_token(token)
+    print(f"DEBUG AUDIT: Token decodificado - payload={payload}")
     
     if not payload:
         # Si el token es inválido, no podemos registrar auditoría correctamente
@@ -69,7 +71,10 @@ def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, old_da
     cod_usuario = payload.get("sub")
     num_sesion = payload.get("sesion")
     
+    print(f"DEBUG AUDIT: cod_usuario={cod_usuario}, num_sesion={num_sesion}")
+    
     if not cod_usuario or not num_sesion:
+        print(f"DEBUG AUDIT: ERROR - Token incompleto")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token incompleto para auditoría"
@@ -80,6 +85,7 @@ def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, old_da
         "old_data": old_data,
         "new_data": new_data
     }
+    print(f"DEBUG AUDIT: datos_snapshot preparado")
     
     # Serializar datos a JSON si existen
     datos_json_str = None
@@ -105,10 +111,17 @@ def registrar_auditoria(db: Session, token: str, tabla: str, accion: int, old_da
         datos_json=datos_json_str
     )
     
+    print(f"DEBUG AUDIT: DetalleSesion creado - tabla={tabla}, accion={accion}, usuario={cod_usuario}, sesion={num_sesion}")
     db.add(nuevo_detalle)
+    print(f"DEBUG AUDIT: DetalleSesion añadido a la sesión")
+    
     # No hacemos commit aquí para permitir que la transacción principal maneje el commit/rollback
     # Pero si es una consulta (GET), necesitamos hacer commit o flush para que quede registrado
     if accion == 0: 
+        print(f"DEBUG AUDIT: Haciendo commit (accion=0)")
         db.commit()
     else:
+        print(f"DEBUG AUDIT: Haciendo flush (accion={accion})")
         db.flush()
+    
+    print(f"DEBUG AUDIT: registrar_auditoria completado exitosamente")

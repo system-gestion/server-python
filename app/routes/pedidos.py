@@ -65,16 +65,9 @@ def crear_pedido(
             )
             db.add(nuevo_detalle)
     
-    # Registrar auditoría (2 = Inserción)
-    # Usamos los datos básicos ya que los detalles se guardaron pero no tenemos el objeto completo formateado aún
-    # Podríamos usar pedido_response después, pero registrar_auditoria se llama antes del commit final en el código original
-    # Moveremos la auditoría después de cargar la respuesta completa
-    pass
+    db.flush()  # Hacer flush en lugar de commit para obtener el num_pedido
     
-    db.commit()
-    db.refresh(nuevo_pedido)
-    
-    # Cargar relaciones
+    # Cargar relaciones para la respuesta
     pedido_response = db.query(Pedido).options(
         joinedload(Pedido.cliente),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
@@ -83,13 +76,14 @@ def crear_pedido(
     formatted_response = _format_pedido_response(pedido_response)
     
     # Registrar auditoría (2 = Inserción) con datos completos
-    # Convertir fechas a string
     audit_data = formatted_response.copy()
     audit_data["fecha"] = str(audit_data["fecha"])
     if audit_data.get("fecha_entrega"):
         audit_data["fecha_entrega"] = str(audit_data["fecha_entrega"])
-        
+    
     registrar_auditoria(db, token, "pedido", 2, new_data=audit_data)
+    
+    db.commit()
     
     return formatted_response
 

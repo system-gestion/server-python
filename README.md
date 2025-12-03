@@ -96,6 +96,13 @@ Como ya tenemos conexión, inyectamos los datos de prueba.
 ```bash
 python -m app.seeders.seed
 ```
+#### Opcional
+
+Podemos resetear la bd con este comando
+
+```bash
+python reset_db.py 
+```
 
 #### Paso 6: Ejecutar el Servidor (Modo Producción)
 
