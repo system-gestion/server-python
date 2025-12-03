@@ -25,6 +25,11 @@ class Settings:
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30000
     
+    # Configuración de Email (Gmail)
+    GMAIL_EMAIL: str = os.getenv("GMAIL_EMAIL", "")  # Tu email de Gmail
+    GMAIL_PASSWORD: str = os.getenv("GMAIL_PASSWORD", "")  # App Password de Gmail
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:4200")
+    
     # Información del proyecto
     PROJECT_NAME: str = "FastAPI REST API"
     VERSION: str = "1.0.0"

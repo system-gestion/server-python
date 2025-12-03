@@ -20,6 +20,7 @@ class MeResponse(UsuarioBase):
     estado: int
     fecha_baja: Optional[date] = None
     cod_cliente: Optional[str] = Field(None, examples=["CLI001"])
+    email_verificado: int = Field(default=0, description="0=No verificado, 1=Verificado")
 
     class Config:
         from_attributes = True
@@ -41,3 +42,12 @@ class LoginResponse(BaseModel):
 
 class LogoutResponse(BaseModel):
     message: str
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(..., min_length=1, description="Token de verificación de email")
+
+
+class VerifyEmailResponse(BaseModel):
+    message: str
+    email_verified: bool

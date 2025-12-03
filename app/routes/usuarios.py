@@ -13,10 +13,12 @@ from app.database import get_db
 from app.models.usuario import Usuario
 from app.models.sesion_log import SesionLog
 from app.models.detalle_sesion import DetalleSesion
+from app.models.email_verification import EmailVerificationToken
 from app.schemas.usuario import (
     UsuarioCreate, UsuarioUpdate, UsuarioResponse, UsuarioOnline
 )
 from app.core.security import registrar_auditoria, get_token
+from app.email.email_service import email_service
 
 router = APIRouter(
     prefix="/usuarios",
@@ -51,6 +53,16 @@ def crear_usuario(
     db.add(nuevo_usuario)
     db.flush() # Flush para obtener el ID
     
+    # Generar token de verificación
+    verification_token = email_service.generate_verification_token()
+    
+    # Guardar token en la base de datos
+    token_record = EmailVerificationToken(
+        cod_usuario=nuevo_usuario.cod_usuario,
+        token=verification_token
+    )
+    db.add(token_record)
+    
     # Registrar auditoría (2 = Inserción)
     # El usuario pide explícitamente guardar todo, incluso el password encriptado
     audit_data = usuario_data.copy()
@@ -62,6 +74,17 @@ def crear_usuario(
     
     db.commit()
     db.refresh(nuevo_usuario)
+    
+    # Enviar email de verificación (no bloquear si falla)
+    try:
+        email_service.send_verification_email(
+            recipient_email=nuevo_usuario.correo,
+            username=f"{nuevo_usuario.nombres} {nuevo_usuario.apellidos}",
+            token=verification_token
+        )
+    except Exception as e:
+        print(f"⚠️ No se pudo enviar el email de verificación: {e}")
+    
     return nuevo_usuario
 
 

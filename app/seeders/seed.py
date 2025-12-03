@@ -78,7 +78,8 @@ def seed_usuarios(db: Session):
             celular="999-111-222",
             fecha_ingreso=date(2024, 1, 15),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=2,
@@ -89,7 +90,8 @@ def seed_usuarios(db: Session):
             celular="999-777-888",
             fecha_ingreso=date(2024, 2, 1),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=3,
@@ -100,7 +102,8 @@ def seed_usuarios(db: Session):
             celular="999-333-444",
             fecha_ingreso=date(2024, 3, 20),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=4,
@@ -111,7 +114,8 @@ def seed_usuarios(db: Session):
             celular="999-555-666",
             fecha_ingreso=date(2024, 5, 10),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=5,
@@ -122,7 +126,8 @@ def seed_usuarios(db: Session):
             celular="555-1234",
             fecha_ingreso=date(2024, 7, 5),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=6,
@@ -133,7 +138,8 @@ def seed_usuarios(db: Session):
             celular="555-5678",
             fecha_ingreso=date(2024, 8, 10),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=7,
@@ -144,7 +150,8 @@ def seed_usuarios(db: Session):
             celular="555-9012",
             fecha_ingreso=date(2024, 9, 1),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=8,
@@ -155,7 +162,8 @@ def seed_usuarios(db: Session):
             celular="555-3456",
             fecha_ingreso=date(2024, 10, 5),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
         Usuario(
             cod_usuario=9,
@@ -166,7 +174,8 @@ def seed_usuarios(db: Session):
             celular="555-7890",
             fecha_ingreso=date(2024, 11, 1),
             estado=1,
-            password=hash_password("123456")
+            password=hash_password("123456"),
+            email_verificado=1
         ),
     ]
     

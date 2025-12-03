@@ -24,6 +24,7 @@ class Usuario(Base):
         estado (int): Estado del usuario (0 = de baja, 1 = activo)
         fecha_baja (date): Fecha de baja (null si está activo)
         password (str): Contraseña del usuario (debe estar hasheada)
+        email_verificado (int): Estado de verificación del email (0 = no verificado, 1 = verificado)
     """
     __tablename__ = "usuario"
 
@@ -37,6 +38,7 @@ class Usuario(Base):
     estado = Column(Integer, nullable=False, default=1)  # 0 = de baja, 1 = activo
     fecha_baja = Column(Date, nullable=True)
     password = Column(String(255), nullable=False)
+    email_verificado = Column(Integer, nullable=False, default=0)  # 0 = no verificado, 1 = verificado
 
     # Relación con detalle_sesion
     detalles_sesion = relationship("DetalleSesion", back_populates="usuario")

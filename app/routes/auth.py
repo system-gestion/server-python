@@ -14,8 +14,10 @@ from app.config import settings
 from app.models.usuario import Usuario
 from app.models.sesion_log import SesionLog
 from app.models.detalle_sesion import DetalleSesion
-from app.schemas.auth import UsuarioLogin, LoginResponse, LogoutResponse, MeResponse
+from app.models.email_verification import EmailVerificationToken
+from app.schemas.auth import UsuarioLogin, LoginResponse, LogoutResponse, MeResponse, VerifyEmailRequest, VerifyEmailResponse
 from app.core.security import create_access_token, get_token
+from app.email.email_service import email_service
 
 router = APIRouter(
     prefix="/auth",
@@ -159,3 +161,112 @@ def get_current_user_info(
     registrar_auditoria(db, token, "usuario", 0)
     
     return current_user
+
+
+@router.post("/verify-email", response_model=VerifyEmailResponse)
+def verify_email(request: VerifyEmailRequest, db: Session = Depends(get_db)):
+    """
+    Verifica el email del usuario usando el token enviado por correo
+    """
+    from datetime import datetime
+    
+    # Buscar el token en la base de datos
+    token_record = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token == request.token
+    ).first()
+    
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token de verificación inválido"
+        )
+    
+    # Verificar si el token ya fue usado
+    if token_record.used == 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este token ya ha sido utilizado"
+        )
+    
+    # Verificar si el token ha expirado
+    if datetime.utcnow() > token_record.expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El token de verificación ha expirado"
+        )
+    
+    # Buscar el usuario
+    usuario = db.query(Usuario).filter(
+        Usuario.cod_usuario == token_record.cod_usuario
+    ).first()
+    
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado"
+        )
+    
+    # Verificar el email del usuario
+    usuario.email_verificado = 1
+    token_record.used = 1
+    
+    db.commit()
+    
+    # Enviar email de bienvenida
+    email_service.send_welcome_email(
+        recipient_email=usuario.correo,
+        username=f"{usuario.nombres} {usuario.apellidos}"
+    )
+    
+    return {
+        "message": "Email verificado exitosamente",
+        "email_verified": True
+    }
+
+
+@router.post("/resend-verification")
+def resend_verification_email(correo: str, db: Session = Depends(get_db)):
+    """
+    Reenvía el email de verificación al usuario
+    """
+    usuario = db.query(Usuario).filter(Usuario.correo == correo).first()
+    
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado"
+        )
+    
+    if usuario.email_verificado == 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El email ya está verificado"
+        )
+    
+    # Generar nuevo token
+    token = email_service.generate_verification_token()
+    
+    # Guardar token en la base de datos
+    nuevo_token = EmailVerificationToken(
+        cod_usuario=usuario.cod_usuario,
+        token=token
+    )
+    db.add(nuevo_token)
+    db.commit()
+    
+    # Enviar email
+    email_sent = email_service.send_verification_email(
+        recipient_email=usuario.correo,
+        username=f"{usuario.nombres} {usuario.apellidos}",
+        token=token
+    )
+    
+    if not email_sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al enviar el email de verificación"
+        )
+    
+    return {
+        "message": "Email de verificación reenviado exitosamente"
+    }
