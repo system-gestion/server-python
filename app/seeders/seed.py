@@ -174,37 +174,27 @@ def seed_clientes(db: Session):
     clientes = [
         Cliente(
             cod_cliente="CLI001",
-            nombre="Juan Pérez García",
             direccion="Av. Principal 123, Lima",
-            telefono="555-1234",
             cod_usuario=4  # Juan (Cliente)
         ),
         Cliente(
             cod_cliente="CLI002",
-            nombre="María López Rodríguez",
             direccion="Calle Los Olivos 456, Arequipa",
-            telefono="555-5678",
             cod_usuario=5  # María (Cliente)
         ),
         Cliente(
             cod_cliente="CLI003",
-            nombre="Carlos Mendoza Silva",
             direccion="Jr. Las Flores 789, Cusco",
-            telefono="555-9012",
             cod_usuario=6  # Carlos (Cliente)
         ),
         Cliente(
             cod_cliente="CLI004",
-            nombre="Ana Torres Vega",
             direccion="Av. Los Pinos 321, Trujillo",
-            telefono="555-3456",
             cod_usuario=7  # Ana (Cliente)
         ),
         Cliente(
             cod_cliente="CLI005",
-            nombre="Roberto Sánchez Cruz",
             direccion="Calle San Martín 654, Piura",
-            telefono="555-7890",
             cod_usuario=8  # Roberto (Cliente)
         ),
     ]

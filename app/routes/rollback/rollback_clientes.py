@@ -32,22 +32,19 @@ def rollback_cliente(db: Session, accion: int, datos: dict) -> str:
                 raise HTTPException(status_code=400, detail="Cliente no encontrado")
         
         # Restaurar datos cliente
-        if "nombre" in datos: cliente.nombre = datos["nombre"]
-        if "direccion" in datos: cliente.direccion = datos["direccion"]
-        if "telefono" in datos: cliente.telefono = datos["telefono"]
+        if "direccion" in datos: 
+            cliente.direccion = datos["direccion"]
         
         # Restaurar datos usuario si existen en el snapshot
         if cliente.usuario:
+            if "apellidos" in datos and datos["apellidos"]:
+                cliente.usuario.apellidos = datos["apellidos"]
+            if "nombres" in datos and datos["nombres"]:
+                cliente.usuario.nombres = datos["nombres"]
             if "correo" in datos and datos["correo"]:
                 cliente.usuario.correo = datos["correo"]
             if "celular" in datos and datos["celular"]:
                 cliente.usuario.celular = datos["celular"]
-            
-            # Sincronizar nombre usuario si cambió
-            if "nombre" in datos:
-                nombre_completo = datos["nombre"].strip().split()
-                cliente.usuario.apellidos = nombre_completo[0] if len(nombre_completo) > 0 else ""
-                cliente.usuario.nombres = " ".join(nombre_completo[1:]) if len(nombre_completo) > 1 else nombre_completo[0] if len(nombre_completo) == 1 else ""
 
         return f"Rollback: Cliente {cod_cliente} restaurado"
 
@@ -59,8 +56,8 @@ def rollback_cliente(db: Session, accion: int, datos: dict) -> str:
             if usuario:
                 usuario.estado = 1 # Reactivar usuario
             
-            # Recrear cliente
-            cliente_data = {k: v for k, v in datos.items() if k in ["cod_cliente", "nombre", "direccion", "telefono", "cod_usuario"]}
+            # Recrear cliente (solo con direccion y cod_usuario)
+            cliente_data = {k: v for k, v in datos.items() if k in ["cod_cliente", "direccion", "cod_usuario"]}
             nuevo_cliente = Cliente(**cliente_data)
             db.add(nuevo_cliente)
             

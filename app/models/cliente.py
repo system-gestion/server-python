@@ -14,21 +14,20 @@ class Cliente(Base):
     
     Atributos:
         cod_cliente (str): Código único del cliente [PK]
-        nombre (str): Nombre del cliente
         direccion (str): Dirección del cliente
-        telefono (str): Teléfono del cliente
+        cod_usuario (int): Código del usuario asociado [FK]
+    
+    Nota: nombre, apellidos y telefono se obtienen del Usuario relacionado
     """
     __tablename__ = "cliente"
 
     from sqlalchemy import ForeignKey, Integer
 
     cod_cliente = Column(String(50), primary_key=True, index=True)
-    nombre = Column(String(200), nullable=False)
     direccion = Column(String(300))
-    telefono = Column(String(20))
     
     # Relación con Usuario
-    cod_usuario = Column(Integer, ForeignKey("usuario.cod_usuario"), nullable=True, unique=True)
+    cod_usuario = Column(Integer, ForeignKey("usuario.cod_usuario"), nullable=False, unique=True)
     usuario = relationship("Usuario", back_populates="cliente")
 
     # Relación con pedidos

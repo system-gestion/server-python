@@ -45,20 +45,15 @@ def crear_cliente(
         )
     
     # Crear usuario (nivel 3 = Cliente)
-    # Separar nombre en apellidos y nombres
-    nombre_completo = cliente.nombre.strip().split()
-    apellidos = nombre_completo[0] if len(nombre_completo) > 0 else ""
-    nombres = " ".join(nombre_completo[1:]) if len(nombre_completo) > 1 else nombre_completo[0] if len(nombre_completo) == 1 else ""
-    
     # Hash password
     hashed_password = bcrypt.hashpw(cliente.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
     nuevo_usuario = Usuario(
-        apellidos=apellidos,
-        nombres=nombres,
+        apellidos=cliente.apellidos,
+        nombres=cliente.nombres,
         nivel=3,  # Cliente
         correo=cliente.correo,
-        celular=cliente.telefono, # Usar el teléfono como celular
+        celular=cliente.celular,
         fecha_ingreso=date.today(),
         estado=1,  # Activo
         password=hashed_password
@@ -69,9 +64,7 @@ def crear_cliente(
     # Crear cliente
     nuevo_cliente = Cliente(
         cod_cliente=cliente.cod_cliente,
-        nombre=cliente.nombre,
         direccion=cliente.direccion,
-        telefono=cliente.telefono,
         cod_usuario=nuevo_usuario.cod_usuario
     )
     db.add(nuevo_cliente)
@@ -79,7 +72,8 @@ def crear_cliente(
     # Registrar auditoría (2 = Inserción)
     registrar_auditoria(db, token, "cliente", 2, new_data={
         "cod_cliente": cliente.cod_cliente,
-        "nombre": cliente.nombre,
+        "apellidos": cliente.apellidos,
+        "nombres": cliente.nombres,
         "correo": cliente.correo,
         "cod_usuario": nuevo_usuario.cod_usuario
     })
@@ -91,10 +85,10 @@ def crear_cliente(
     # Retornar con datos del usuario
     return ClienteResponse(
         cod_cliente=nuevo_cliente.cod_cliente,
-        nombre=nuevo_cliente.nombre,
         direccion=nuevo_cliente.direccion,
-        telefono=nuevo_cliente.telefono,
         cod_usuario=nuevo_usuario.cod_usuario,
+        apellidos=nuevo_usuario.apellidos,
+        nombres=nuevo_usuario.nombres,
         correo=nuevo_usuario.correo,
         celular=nuevo_usuario.celular,
         estado=nuevo_usuario.estado
@@ -119,9 +113,10 @@ def listar_clientes(
     if q:
         query = query.filter(
             or_(
-                Cliente.nombre.ilike(f"%{q}%"),
                 Cliente.cod_cliente.ilike(f"%{q}%"),
-                Usuario.correo.ilike(f"%{q}%")
+                Usuario.correo.ilike(f"%{q}%"),
+                Usuario.apellidos.ilike(f"%{q}%"),
+                Usuario.nombres.ilike(f"%{q}%")
             )
         )
     
@@ -138,10 +133,10 @@ def listar_clientes(
     return [
         ClienteResponse(
             cod_cliente=c.cod_cliente,
-            nombre=c.nombre,
             direccion=c.direccion,
-            telefono=c.telefono,
             cod_usuario=c.cod_usuario,
+            apellidos=c.usuario.apellidos if c.usuario else None,
+            nombres=c.usuario.nombres if c.usuario else None,
             correo=c.usuario.correo if c.usuario else None,
             celular=c.usuario.celular if c.usuario else None,
             estado=c.usuario.estado if c.usuario else None
@@ -169,10 +164,10 @@ def obtener_cliente(
     
     return ClienteResponse(
         cod_cliente=cliente.cod_cliente,
-        nombre=cliente.nombre,
         direccion=cliente.direccion,
-        telefono=cliente.telefono,
         cod_usuario=cliente.cod_usuario,
+        apellidos=cliente.usuario.apellidos if cliente.usuario else None,
+        nombres=cliente.usuario.nombres if cliente.usuario else None,
         correo=cliente.usuario.correo if cliente.usuario else None,
         celular=cliente.usuario.celular if cliente.usuario else None,
         estado=cliente.usuario.estado if cliente.usuario else None
@@ -199,34 +194,26 @@ def actualizar_cliente(
     # Snapshot
     old_data = {
         "cod_cliente": cliente.cod_cliente,
-        "nombre": cliente.nombre,
         "direccion": cliente.direccion,
-        "telefono": cliente.telefono,
         "cod_usuario": cliente.cod_usuario,
+        "apellidos": cliente.usuario.apellidos if cliente.usuario else None,
+        "nombres": cliente.usuario.nombres if cliente.usuario else None,
         "correo": cliente.usuario.correo if cliente.usuario else None,
         "celular": cliente.usuario.celular if cliente.usuario else None
     }
 
     # Actualizar datos del cliente
-    if cliente_update.nombre:
-        cliente.nombre = cliente_update.nombre
-        # Actualizar también el nombre del usuario
-        if cliente.usuario:
-            nombre_completo = cliente_update.nombre.strip().split()
-            cliente.usuario.apellidos = nombre_completo[0] if len(nombre_completo) > 0 else ""
-            cliente.usuario.nombres = " ".join(nombre_completo[1:]) if len(nombre_completo) > 1 else nombre_completo[0] if len(nombre_completo) == 1 else ""
-    
     if cliente_update.direccion is not None:
         cliente.direccion = cliente_update.direccion
     
-    if cliente_update.telefono is not None:
-        cliente.telefono = cliente_update.telefono
-        # Sincronizar con celular si existe usuario
-        if cliente.usuario:
-            cliente.usuario.celular = cliente_update.telefono
-    
     # Actualizar datos del usuario si existen
     if cliente.usuario:
+        if cliente_update.apellidos:
+            cliente.usuario.apellidos = cliente_update.apellidos
+        
+        if cliente_update.nombres:
+            cliente.usuario.nombres = cliente_update.nombres
+        
         if cliente_update.correo:
             # Verificar que el correo no esté en uso por otro usuario
             existing = db.query(Usuario).filter(
@@ -240,8 +227,8 @@ def actualizar_cliente(
                 )
             cliente.usuario.correo = cliente_update.correo
         
-        # Eliminamos la actualización directa de celular desde el payload de usuario
-        # ya que se maneja a través de cliente.telefono
+        if cliente_update.celular is not None:
+            cliente.usuario.celular = cliente_update.celular
         
         if cliente_update.password:
             hashed_password = bcrypt.hashpw(cliente_update.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -250,10 +237,10 @@ def actualizar_cliente(
     # Registrar auditoría (1 = Edición)
     new_data = {
         "cod_cliente": cliente.cod_cliente,
-        "nombre": cliente.nombre,
         "direccion": cliente.direccion,
-        "telefono": cliente.telefono,
         "cod_usuario": cliente.cod_usuario,
+        "apellidos": cliente.usuario.apellidos if cliente.usuario else None,
+        "nombres": cliente.usuario.nombres if cliente.usuario else None,
         "correo": cliente.usuario.correo if cliente.usuario else None,
         "celular": cliente.usuario.celular if cliente.usuario else None
     }
@@ -264,10 +251,10 @@ def actualizar_cliente(
     
     return ClienteResponse(
         cod_cliente=cliente.cod_cliente,
-        nombre=cliente.nombre,
         direccion=cliente.direccion,
-        telefono=cliente.telefono,
         cod_usuario=cliente.cod_usuario,
+        apellidos=cliente.usuario.apellidos if cliente.usuario else None,
+        nombres=cliente.usuario.nombres if cliente.usuario else None,
         correo=cliente.usuario.correo if cliente.usuario else None,
         celular=cliente.usuario.celular if cliente.usuario else None,
         estado=cliente.usuario.estado if cliente.usuario else None
@@ -298,10 +285,10 @@ def eliminar_cliente(
     # Registrar auditoría (3 = Eliminación)
     old_data = {
         "cod_cliente": cliente.cod_cliente,
-        "nombre": cliente.nombre,
         "direccion": cliente.direccion,
-        "telefono": cliente.telefono,
-        "cod_usuario": cliente.cod_usuario
+        "cod_usuario": cliente.cod_usuario,
+        "apellidos": cliente.usuario.apellidos if cliente.usuario else None,
+        "nombres": cliente.usuario.nombres if cliente.usuario else None
     }
     registrar_auditoria(db, token, "cliente", 3, old_data=old_data)
     
