@@ -9,7 +9,7 @@ import uvicorn
 
 from app.config import settings
 from app.database import init_db
-from app.routes import auth, clientes, pedidos, usuarios, articulos, auditoria, comisiones, storage, ofertas, ws_users
+from app.routes import auth, clientes, pedidos, usuarios, articulos, auditoria, comisiones, storage, ofertas, ws_users, ws_clientes
 from app.routes.auth import get_current_user_from_token
 
 # Crear la instancia de FastAPI
@@ -76,6 +76,7 @@ app.include_router(comisiones.router, dependencies=[Depends(get_current_user_fro
 app.include_router(ofertas.router, dependencies=[Depends(get_current_user_from_token)])
 app.include_router(storage.router, dependencies=[Depends(get_current_user_from_token)])
 app.include_router(ws_users.router)
+app.include_router(ws_clientes.router)
 
 
 # Punto de entrada para ejecutar la aplicación

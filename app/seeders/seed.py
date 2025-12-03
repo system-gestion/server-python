@@ -82,6 +82,17 @@ def seed_usuarios(db: Session):
         ),
         Usuario(
             cod_usuario=2,
+            apellidos="Ramírez López",
+            nombres="Sergio",
+            nivel=1,  # Supervisor
+            correo="sergio@gmail.com",
+            celular="999-777-888",
+            fecha_ingreso=date(2024, 2, 1),
+            estado=1,
+            password=hash_password("123456")
+        ),
+        Usuario(
+            cod_usuario=3,
             apellidos="Caycho",
             nombres="Adriano",
             nivel=2,  # Vendedor
@@ -92,7 +103,7 @@ def seed_usuarios(db: Session):
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=3,
+            cod_usuario=4,
             apellidos="Martínez Silva",
             nombres="Ana Lucía",
             nivel=2,  # Vendedor
@@ -103,7 +114,7 @@ def seed_usuarios(db: Session):
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=4,
+            cod_usuario=5,
             apellidos="Pérez García",
             nombres="Juan",
             nivel=3,  # Cliente
@@ -114,7 +125,7 @@ def seed_usuarios(db: Session):
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=5,
+            cod_usuario=6,
             apellidos="López Rodríguez",
             nombres="María",
             nivel=3,  # Cliente
@@ -125,7 +136,7 @@ def seed_usuarios(db: Session):
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=6,
+            cod_usuario=7,
             apellidos="Mendoza Silva",
             nombres="Carlos",
             nivel=3,  # Cliente
@@ -136,7 +147,7 @@ def seed_usuarios(db: Session):
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=7,
+            cod_usuario=8,
             apellidos="Torres Vega",
             nombres="Ana",
             nivel=3,  # Cliente
@@ -147,7 +158,7 @@ def seed_usuarios(db: Session):
             password=hash_password("123456")
         ),
         Usuario(
-            cod_usuario=8,
+            cod_usuario=9,
             apellidos="Sánchez Cruz",
             nombres="Roberto",
             nivel=3,  # Cliente
@@ -164,6 +175,7 @@ def seed_usuarios(db: Session):
     print(f"✅ {len(usuarios)} usuarios insertados")
     print("\n📝 Credenciales de prueba:")
     print("   Supervisor: erick@gmail.com / 123456")
+    print("   Supervisor: sergio@gmail.com / 123456")
     print("   Vendedor: adriano@gmail.com / 123456")
     print("   Cliente: juan@gmail.com / 123456")
 
@@ -175,27 +187,27 @@ def seed_clientes(db: Session):
         Cliente(
             cod_cliente="CLI001",
             direccion="Av. Principal 123, Lima",
-            cod_usuario=4  # Juan (Cliente)
+            cod_usuario=5  # Juan (Cliente)
         ),
         Cliente(
             cod_cliente="CLI002",
             direccion="Calle Los Olivos 456, Arequipa",
-            cod_usuario=5  # María (Cliente)
+            cod_usuario=6  # María (Cliente)
         ),
         Cliente(
             cod_cliente="CLI003",
             direccion="Jr. Las Flores 789, Cusco",
-            cod_usuario=6  # Carlos (Cliente)
+            cod_usuario=7  # Carlos (Cliente)
         ),
         Cliente(
             cod_cliente="CLI004",
             direccion="Av. Los Pinos 321, Trujillo",
-            cod_usuario=7  # Ana (Cliente)
+            cod_usuario=8  # Ana (Cliente)
         ),
         Cliente(
             cod_cliente="CLI005",
             direccion="Calle San Martín 654, Piura",
-            cod_usuario=8  # Roberto (Cliente)
+            cod_usuario=9  # Roberto (Cliente)
         ),
     ]
     

@@ -417,7 +417,7 @@ def _format_pedido_response(pedido: Pedido) -> dict:
     """Helper para formatear respuesta de pedido con nombres"""
     return {
         **PedidoResponse.model_validate(pedido).model_dump(),
-        "nombre_cliente": pedido.cliente.nombre if pedido.cliente else None,
+        "nombre_cliente": pedido.cliente.usuario.nombres + " " + pedido.cliente.usuario.apellidos if pedido.cliente else None,
         "detalles": [
             {
                 **DetallePedidoResponse.model_validate(d).model_dump(),

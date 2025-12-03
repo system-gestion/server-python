@@ -108,7 +108,7 @@ def detalle_comisiones_vendedor(
             "num_pedido": pedido.num_pedido,
             "fecha": pedido.fecha,
             "cod_cliente": pedido.cod_cliente,
-            "nombre_cliente": cliente.nombre if cliente else None,
+            "nombre_cliente": cliente.usuario.nombres + " " + cliente.usuario.apellidos if cliente else None,
             "importe": pedido.importe,
             "comision": pedido.importe * (porcentaje / 100)
         })
