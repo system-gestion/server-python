@@ -42,7 +42,7 @@ class EmailService:
         """
         return secrets.token_urlsafe(32)
     
-    def send_verification_email(self, recipient_email: str, username: str, token: str) -> bool:
+    def send_verification_email(self, recipient_email: str, username: str, token: str, plain_password: Optional[str] = None) -> bool:
         """
         Envía un email de verificación al usuario usando Gmail SMTP
         
@@ -62,6 +62,8 @@ class EmailService:
             print("=" * 70)
             print(f"📨 Para: {recipient_email}")
             print(f"👤 Usuario: {username}")
+            if plain_password:
+                print(f"🔐 Contraseña: {plain_password}")
             print(f"🔑 Token: {token}")
             print(f"🔗 URL de verificación:")
             print(f"   {verification_url}")
@@ -79,6 +81,16 @@ class EmailService:
             verification_url = f"{self.frontend_url}/auth/verify-email?token={token}"
             
             # Contenido HTML del email
+            # Mostrar credenciales en el correo si se proveyó la contraseña en texto plano
+            html_credentials = ""
+            if plain_password:
+                html_credentials = f"""
+                    <div style=\"background:#fff; border:1px solid #eee; padding:12px; border-radius:6px; margin:18px 0;\">
+                        <p><strong>📧 Email:</strong> {recipient_email}</p>
+                        <p><strong>🔐 Contraseña:</strong> {plain_password}</p>
+                    </div>
+                """
+
             html_content = f"""
             <!DOCTYPE html>
             <html>
@@ -141,6 +153,8 @@ class EmailService:
                     </div>
                     
                     <p>Gracias por registrarte en nuestro Sistema de Gestión.</p>
+
+                    <p></p>
                     
                     <p>Para completar tu registro y activar tu cuenta, por favor verifica tu correo electrónico haciendo clic en el siguiente botón:</p>
                     
@@ -156,7 +170,7 @@ class EmailService:
                     
                     <p>Si no puedes hacer clic en el botón, copia y pega este enlace en tu navegador:</p>
                     <p style="word-break: break-all; color: #4CAF50;">{verification_url}</p>
-                    
+                    {html_credentials}
                     <div class="footer">
                         <p>Si no creaste una cuenta en nuestro sistema, puedes ignorar este correo.</p>
                         <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
@@ -168,6 +182,10 @@ class EmailService:
             """
             
             # Contenido de texto plano (fallback)
+            cred_text = ""
+            if plain_password:
+                cred_text = f"\nEmail: {recipient_email}\nPassword: {plain_password}\n"
+
             text_content = f"""
             ¡Bienvenido/a, {username}!
             
@@ -178,6 +196,7 @@ class EmailService:
             
             Este enlace expirará en 24 horas.
             
+            {cred_text}
             Si no creaste una cuenta, puedes ignorar este correo.
             """
             

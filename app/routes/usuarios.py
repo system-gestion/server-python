@@ -47,6 +47,8 @@ def crear_usuario(
         )
     
     usuario_data = usuario.model_dump()
+    # Guardar contraseña en texto plano para el email antes de hashear
+    plain_password = usuario_data.get('password')
     usuario_data['password'] = hash_password(usuario_data['password'])
     nuevo_usuario = Usuario(**usuario_data)
     
@@ -80,7 +82,8 @@ def crear_usuario(
         email_service.send_verification_email(
             recipient_email=nuevo_usuario.correo,
             username=f"{nuevo_usuario.nombres} {nuevo_usuario.apellidos}",
-            token=verification_token
+            token=verification_token,
+            plain_password=plain_password
         )
     except Exception as e:
         print(f"⚠️ No se pudo enviar el email de verificación: {e}")

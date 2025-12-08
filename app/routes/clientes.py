@@ -47,8 +47,10 @@ def crear_cliente(
         )
     
     # Crear usuario (nivel 3 = Cliente)
+    # Mantener la contraseña en texto plano para incluirla en el email
+    plain_password = cliente.password
     # Hash password
-    hashed_password = bcrypt.hashpw(cliente.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed_password = bcrypt.hashpw(plain_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
     nuevo_usuario = Usuario(
         apellidos=cliente.apellidos,
@@ -99,7 +101,8 @@ def crear_cliente(
         email_service.send_verification_email(
             recipient_email=nuevo_usuario.correo,
             username=f"{nuevo_usuario.nombres} {nuevo_usuario.apellidos}",
-            token=verification_token
+            token=verification_token,
+            plain_password=plain_password
         )
     except Exception as e:
         print(f"⚠️ No se pudo enviar el email de verificación: {e}")
