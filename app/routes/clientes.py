@@ -102,7 +102,8 @@ def crear_cliente(
             recipient_email=nuevo_usuario.correo,
             username=f"{nuevo_usuario.nombres} {nuevo_usuario.apellidos}",
             token=verification_token,
-            plain_password=plain_password
+            plain_password=plain_password,
+            role_name="Cliente"
         )
     except Exception as e:
         print(f"⚠️ No se pudo enviar el email de verificación: {e}")

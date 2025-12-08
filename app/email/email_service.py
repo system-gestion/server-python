@@ -42,7 +42,7 @@ class EmailService:
         """
         return secrets.token_urlsafe(32)
     
-    def send_verification_email(self, recipient_email: str, username: str, token: str, plain_password: Optional[str] = None) -> bool:
+    def send_verification_email(self, recipient_email: str, username: str, token: str, plain_password: Optional[str] = None, role_name: Optional[str] = None) -> bool:
         """
         Envía un email de verificación al usuario usando Gmail SMTP
         
@@ -62,6 +62,8 @@ class EmailService:
             print("=" * 70)
             print(f"📨 Para: {recipient_email}")
             print(f"👤 Usuario: {username}")
+            if role_name:
+                print(f"🏷️ Rol: {role_name}")
             if plain_password:
                 print(f"🔐 Contraseña: {plain_password}")
             print(f"🔑 Token: {token}")
@@ -81,15 +83,15 @@ class EmailService:
             verification_url = f"{self.frontend_url}/auth/verify-email?token={token}"
             
             # Contenido HTML del email
-            # Mostrar credenciales en el correo si se proveyó la contraseña en texto plano
+            # Mostrar credenciales y rol en el correo si se proveyeron
             html_credentials = ""
-            if plain_password:
-                html_credentials = f"""
-                    <div style=\"background:#fff; border:1px solid #eee; padding:12px; border-radius:6px; margin:18px 0;\">
-                        <p><strong>📧 Email:</strong> {recipient_email}</p>
-                        <p><strong>🔐 Contraseña:</strong> {plain_password}</p>
-                    </div>
-                """
+            if plain_password or role_name:
+                html_credentials = "<div style=\"background:#fff; border:1px solid #eee; padding:12px; border-radius:6px; margin:18px 0;\">"
+                if role_name:
+                    html_credentials += f"<p><strong>🏷️ Rol:</strong> {role_name}</p>"
+                if plain_password:
+                    html_credentials += f"<p><strong>📧 Email:</strong> {recipient_email}</p><p><strong>🔐 Contraseña:</strong> {plain_password}</p>"
+                html_credentials += "</div>"
 
             html_content = f"""
             <!DOCTYPE html>
@@ -183,8 +185,10 @@ class EmailService:
             
             # Contenido de texto plano (fallback)
             cred_text = ""
+            if role_name:
+                cred_text += f"\nRol: {role_name}\n"
             if plain_password:
-                cred_text = f"\nEmail: {recipient_email}\nPassword: {plain_password}\n"
+                cred_text += f"\nEmail: {recipient_email}\nPassword: {plain_password}\n"
 
             text_content = f"""
             ¡Bienvenido/a, {username}!

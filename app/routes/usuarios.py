@@ -50,6 +50,10 @@ def crear_usuario(
     # Guardar contraseña en texto plano para el email antes de hashear
     plain_password = usuario_data.get('password')
     usuario_data['password'] = hash_password(usuario_data['password'])
+    # Determinar nombre de rol según el nivel
+    nivel = usuario_data.get('nivel')
+    role_map = {1: 'Supervisor', 2: 'Vendedor', 3: 'Cliente'}
+    role_name = role_map.get(nivel, None)
     nuevo_usuario = Usuario(**usuario_data)
     
     db.add(nuevo_usuario)
@@ -83,7 +87,8 @@ def crear_usuario(
             recipient_email=nuevo_usuario.correo,
             username=f"{nuevo_usuario.nombres} {nuevo_usuario.apellidos}",
             token=verification_token,
-            plain_password=plain_password
+            plain_password=plain_password,
+            role_name=role_name
         )
     except Exception as e:
         print(f"⚠️ No se pudo enviar el email de verificación: {e}")
