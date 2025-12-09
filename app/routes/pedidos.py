@@ -40,6 +40,15 @@ def crear_pedido(
             detail=f"Cliente {pedido.cod_cliente} no encontrado"
         )
     
+    # Verificar vendedor existe
+    from app.models.usuario import Usuario
+    vendedor = db.query(Usuario).filter(Usuario.cod_usuario == pedido.cod_vendedor).first()
+    if not vendedor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vendedor {pedido.cod_vendedor} no encontrado"
+        )
+    
     # Crear pedido
     pedido_data = pedido.model_dump(exclude={'detalles'})
     nuevo_pedido = Pedido(**pedido_data)
@@ -70,6 +79,7 @@ def crear_pedido(
     # Cargar relaciones para la respuesta
     pedido_response = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
     ).filter(Pedido.num_pedido == nuevo_pedido.num_pedido).first()
     
@@ -92,14 +102,22 @@ def crear_pedido(
 def listar_pedidos(
     skip: int = Query(0, description="Número de registros a omitir para paginación"),
     limit: int = Query(100, description="Número máximo de registros a retornar"),
+    cod_vendedor: Optional[int] = Query(None, description="Código del vendedor para filtrar pedidos"),
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
     """Listar todos los pedidos"""
-    pedidos = db.query(Pedido).options(
+    query = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
-    ).offset(skip).limit(limit).all()
+    )
+    
+    # Filtrar por vendedor si se proporciona
+    if cod_vendedor:
+        query = query.filter(Pedido.cod_vendedor == cod_vendedor)
+    
+    pedidos = query.offset(skip).limit(limit).all()
     
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "pedido", 0)
@@ -110,6 +128,7 @@ def listar_pedidos(
 @router.get("/search", response_model=List[PedidoResponse])
 def buscar_pedidos(
     cod_cliente: Optional[str] = Query(None, description="Código del cliente para filtrar pedidos"),
+    cod_vendedor: Optional[int] = Query(None, description="Código del vendedor para filtrar pedidos"),
     fecha_inicio: Optional[date] = Query(None, description="Fecha inicial del rango de búsqueda"),
     fecha_fin: Optional[date] = Query(None, description="Fecha final del rango de búsqueda"),
     importe_min: Optional[float] = Query(None, description="Importe mínimo del pedido"),
@@ -120,11 +139,14 @@ def buscar_pedidos(
     """Buscar pedidos con múltiples filtros"""
     query = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
     )
     
     if cod_cliente:
         query = query.filter(Pedido.cod_cliente.ilike(f"%{cod_cliente}%"))
+    if cod_vendedor:
+        query = query.filter(Pedido.cod_vendedor == cod_vendedor)
     if fecha_inicio:
         query = query.filter(Pedido.fecha >= fecha_inicio)
     if fecha_fin:
@@ -145,14 +167,22 @@ def buscar_pedidos(
 @router.get("/by-date", response_model=List[PedidoResponse])
 def pedidos_por_fecha(
     fecha: date = Query(..., description="Fecha específica para filtrar pedidos"),
+    cod_vendedor: Optional[int] = Query(None, description="Código del vendedor para filtrar pedidos"),
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
     """Obtener pedidos de una fecha específica"""
-    pedidos = db.query(Pedido).options(
+    query = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
-    ).filter(Pedido.fecha == fecha).all()
+    ).filter(Pedido.fecha == fecha)
+    
+    # Filtrar por vendedor si se proporciona
+    if cod_vendedor:
+        query = query.filter(Pedido.cod_vendedor == cod_vendedor)
+    
+    pedidos = query.all()
     
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "pedido", 0)
@@ -162,15 +192,23 @@ def pedidos_por_fecha(
 
 @router.get("/by-number/{num_pedido}", response_model=PedidoResponse)
 def pedido_por_numero(
-    num_pedido: int = Path(..., description="Número único del pedido"), 
+    num_pedido: int = Path(..., description="Número único del pedido"),
+    cod_vendedor: Optional[int] = Query(None, description="Código del vendedor para filtrar pedidos"),
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
     """Obtener pedido por número"""
-    pedido = db.query(Pedido).options(
+    query = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
-    ).filter(Pedido.num_pedido == num_pedido).first()
+    ).filter(Pedido.num_pedido == num_pedido)
+    
+    # Filtrar por vendedor si se proporciona
+    if cod_vendedor:
+        query = query.filter(Pedido.cod_vendedor == cod_vendedor)
+    
+    pedido = query.first()
     
     if not pedido:
         raise HTTPException(
@@ -186,16 +224,22 @@ def pedido_por_numero(
 
 @router.get("/pending", response_model=List[PedidoResponse])
 def pedidos_pendientes(
+    cod_vendedor: Optional[int] = Query(None, description="Código del vendedor para filtrar pedidos"),
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
     """Pedidos pendientes de entrega (estado = 1)"""
-    pedidos = db.query(Pedido).options(
+    query = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
-    ).filter(
-        Pedido.estado == 1  # 1 = pending
-    ).all()
+    ).filter(Pedido.estado == 1)  # 1 = pending
+    
+    # Filtrar por vendedor si se proporciona
+    if cod_vendedor:
+        query = query.filter(Pedido.cod_vendedor == cod_vendedor)
+    
+    pedidos = query.all()
     
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "pedido", 0)
@@ -205,16 +249,22 @@ def pedidos_pendientes(
 
 @router.get("/completed", response_model=List[PedidoResponse])
 def pedidos_completados(
+    cod_vendedor: Optional[int] = Query(None, description="Código del vendedor para filtrar pedidos"),
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
     """Pedidos completados (estado = 2)"""
-    pedidos = db.query(Pedido).options(
+    query = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
-    ).filter(
-        Pedido.estado == 2  # 2 = completed
-    ).all()
+    ).filter(Pedido.estado == 2)  # 2 = completed
+    
+    # Filtrar por vendedor si se proporciona
+    if cod_vendedor:
+        query = query.filter(Pedido.cod_vendedor == cod_vendedor)
+    
+    pedidos = query.all()
     
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "pedido", 0)
@@ -224,16 +274,22 @@ def pedidos_completados(
 
 @router.get("/cancelled", response_model=List[PedidoResponse])
 def pedidos_cancelados(
+    cod_vendedor: Optional[int] = Query(None, description="Código del vendedor para filtrar pedidos"),
     db: Session = Depends(get_db),
     token: str = Depends(get_token)
 ):
     """Pedidos cancelados (estado = 3)"""
-    pedidos = db.query(Pedido).options(
+    query = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
-    ).filter(
-        Pedido.estado == 3  # 3 = cancelled
-    ).all()
+    ).filter(Pedido.estado == 3)  # 3 = cancelled
+    
+    # Filtrar por vendedor si se proporciona
+    if cod_vendedor:
+        query = query.filter(Pedido.cod_vendedor == cod_vendedor)
+    
+    pedidos = query.all()
     
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "pedido", 0)
@@ -250,8 +306,28 @@ def pedidos_de_cliente(
     """Obtener todos los pedidos de un cliente específico"""
     pedidos = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
     ).filter(Pedido.cod_cliente == cod_cliente).all()
+    
+    # Registrar auditoría (0 = Consulta)
+    registrar_auditoria(db, token, "pedido", 0)
+    
+    return [_format_pedido_response(p) for p in pedidos]
+
+
+@router.get("/vendedor/{cod_vendedor}", response_model=List[PedidoResponse])
+def pedidos_de_vendedor(
+    cod_vendedor: int = Path(..., description="Código del vendedor para obtener sus pedidos"), 
+    db: Session = Depends(get_db),
+    token: str = Depends(get_token)
+):
+    """Obtener todos los pedidos de un vendedor específico"""
+    pedidos = db.query(Pedido).options(
+        joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
+        joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
+    ).filter(Pedido.cod_vendedor == cod_vendedor).all()
     
     # Registrar auditoría (0 = Consulta)
     registrar_auditoria(db, token, "pedido", 0)
@@ -315,6 +391,7 @@ def actualizar_pedido(
     original_data = {
         "num_pedido": pedido.num_pedido,
         "cod_cliente": pedido.cod_cliente,
+        "cod_vendedor": pedido.cod_vendedor,
         "fecha": str(pedido.fecha),
         "importe": float(pedido.importe),
         "estado": pedido.estado
@@ -334,6 +411,7 @@ def actualizar_pedido(
     
     pedido_response = db.query(Pedido).options(
         joinedload(Pedido.cliente),
+        joinedload(Pedido.vendedor),
         joinedload(Pedido.detalles).joinedload(DetallePedido.articulo)
     ).filter(Pedido.num_pedido == num_pedido).first()
     
@@ -418,6 +496,7 @@ def _format_pedido_response(pedido: Pedido) -> dict:
     return {
         **PedidoResponse.model_validate(pedido).model_dump(),
         "nombre_cliente": pedido.cliente.usuario.nombres + " " + pedido.cliente.usuario.apellidos if pedido.cliente else None,
+        "nombre_vendedor": pedido.vendedor.nombres + " " + pedido.vendedor.apellidos if pedido.vendedor else None,
         "detalles": [
             {
                 **DetallePedidoResponse.model_validate(d).model_dump(),

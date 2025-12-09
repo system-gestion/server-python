@@ -44,12 +44,10 @@ def calcular_comision_vendedor(
             detail="El usuario no es un vendedor"
         )
     
-    # Calcular ventas del período
-    # Asumiendo que el vendedor está asociado al cliente
-    # En producción necesitarías una relación explícita vendedor-pedido
-    
+    # Calcular ventas del período para este vendedor específico
     pedidos = db.query(Pedido).filter(
         and_(
+            Pedido.cod_vendedor == cod_usuario,
             Pedido.fecha >= fecha_inicio,
             Pedido.fecha <= fecha_fin
         )
@@ -91,8 +89,10 @@ def detalle_comisiones_vendedor(
             detail=f"Usuario {cod_usuario} no encontrado"
         )
     
+    # Filtrar pedidos del vendedor específico
     pedidos = db.query(Pedido).filter(
         and_(
+            Pedido.cod_vendedor == cod_usuario,
             Pedido.fecha >= fecha_inicio,
             Pedido.fecha <= fecha_fin
         )
@@ -132,8 +132,10 @@ def resumen_comisiones_todos(
     
     resultado = []
     for vendedor in vendedores:
+        # Filtrar pedidos específicos del vendedor
         pedidos = db.query(Pedido).filter(
             and_(
+                Pedido.cod_vendedor == vendedor.cod_usuario,
                 Pedido.fecha >= fecha_inicio,
                 Pedido.fecha <= fecha_fin
             )

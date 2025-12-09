@@ -35,6 +35,7 @@ class PedidoBase(BaseModel):
     fecha: date = Field(default_factory=date.today)
     importe: float = Field(..., ge=0)
     cod_cliente: str
+    cod_vendedor: int
     estado: int = Field(default=1, ge=1, le=3)
 
 
@@ -51,12 +52,14 @@ class PedidoUpdate(BaseModel):
     fecha: Optional[date] = None
     importe: Optional[float] = Field(None, ge=0)
     cod_cliente: Optional[str] = None
+    cod_vendedor: Optional[int] = None
     estado: Optional[int] = Field(None, ge=1, le=3)
 
 
 class PedidoResponse(PedidoBase):
     num_pedido: int
     nombre_cliente: Optional[str] = None
+    nombre_vendedor: Optional[str] = None
     detalles: List[DetallePedidoResponse] = []
 
     class Config:

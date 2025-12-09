@@ -234,6 +234,7 @@ def seed_pedidos(db: Session):
         fecha=date(2025, 11, 1),
         importe=3050.50,
         cod_cliente="CLI001",
+        cod_vendedor=3,  # Adriano
         estado=1  # 1 = pending
     )
     db.add(pedido1)
@@ -253,6 +254,7 @@ def seed_pedidos(db: Session):
         fecha=date(2025, 11, 5),
         importe=1040.00,
         cod_cliente="CLI002",
+        cod_vendedor=4,  # Ana Lucía
         estado=2  # 2 = completed
     )
     db.add(pedido2)
@@ -270,6 +272,7 @@ def seed_pedidos(db: Session):
         fecha=date(2025, 11, 8),
         importe=1110.00,
         cod_cliente="CLI003",
+        cod_vendedor=3,  # Adriano
         estado=3  # 3 = cancelled
     )
     db.add(pedido3)
@@ -289,6 +292,7 @@ def seed_pedidos(db: Session):
         fecha=date(2025, 11, 10),
         importe=455.50,
         cod_cliente="CLI004",
+        cod_vendedor=4,  # Ana Lucía
         estado=1  # 1 = pending
     )
     db.add(pedido4)

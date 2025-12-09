@@ -53,6 +53,7 @@ def rollback_pedido(db: Session, accion: int, datos: dict) -> str:
         
         # Remove extra fields
         pedido_data.pop("nombre_cliente", None)
+        pedido_data.pop("nombre_vendedor", None)
         
         # Convert dates
         if "fecha" in pedido_data and isinstance(pedido_data["fecha"], str):
