@@ -241,8 +241,10 @@ def actualizar_usuario(
                 detail=f"El correo {update_data['correo']} ya está registrado por otro usuario"
             )
     
-    # Hash password si se está actualizando
+    # Guardar la contraseña en texto plano si se está actualizando
+    plain_password = None
     if 'password' in update_data:
+        plain_password = update_data['password']
         update_data['password'] = hash_password(update_data['password'])
     
     # Snapshot de datos originales antes de actualizar
@@ -259,10 +261,15 @@ def actualizar_usuario(
         "password": usuario.password
     }
 
+    # Rastrear cambios para el email
+    changes = {}
     for field, value in update_data.items():
+        if field != 'password':  # No mostrar password hasheado
+            old_value = getattr(usuario, field)
+            if old_value != value:
+                changes[field] = value
         setattr(usuario, field, value)
     
-    # Registrar auditoría (1 = Edición)
     # Registrar auditoría (1 = Edición)
     datos_nuevos = {
         "cod_usuario": usuario.cod_usuario,
@@ -280,6 +287,22 @@ def actualizar_usuario(
     
     db.commit()
     db.refresh(usuario)
+    
+    # Enviar email de notificación si hubo cambios
+    if changes or plain_password:
+        try:
+            role_map = {1: 'Supervisor', 2: 'Vendedor', 3: 'Cliente'}
+            role_name = role_map.get(usuario.nivel, None)
+            email_service.send_update_notification_email(
+                recipient_email=usuario.correo,
+                username=f"{usuario.nombres} {usuario.apellidos}",
+                changes=changes,
+                plain_password=plain_password,
+                role_name=role_name
+            )
+        except Exception as e:
+            print(f"⚠️ No se pudo enviar el email de notificación: {e}")
+    
     return usuario
 
 

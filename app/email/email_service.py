@@ -346,6 +346,203 @@ class EmailService:
         except Exception as e:
             print(f"❌ Error al enviar email de bienvenida: {e}")
             return False
+    
+    def send_update_notification_email(
+        self, 
+        recipient_email: str, 
+        username: str, 
+        changes: dict,
+        plain_password: Optional[str] = None,
+        role_name: Optional[str] = None
+    ) -> bool:
+        """
+        Envía un email de notificación cuando se actualizan datos del usuario
+        
+        Args:
+            recipient_email (str): Email del destinatario
+            username (str): Nombre del usuario
+            changes (dict): Diccionario con los cambios realizados
+            plain_password (str, optional): Contraseña en texto plano si fue actualizada
+            role_name (str, optional): Nombre del rol del usuario
+            
+        Returns:
+            bool: True si el email se envió correctamente, False en caso contrario
+        """
+        # Si no está configurado Gmail, solo mostrar en consola
+        if not self.gmail_configured:
+            print("\n" + "=" * 70)
+            print("🔄 EMAIL DE ACTUALIZACIÓN (MODO DESARROLLO - SIN GMAIL)")
+            print("=" * 70)
+            print(f"📨 Para: {recipient_email}")
+            print(f"👤 Usuario: {username}")
+            if role_name:
+                print(f"🏷️ Rol: {role_name}")
+            print(f"\n📝 Cambios realizados:")
+            for field, value in changes.items():
+                print(f"   - {field}: {value}")
+            if plain_password:
+                print(f"\n🔐 Nueva contraseña: {plain_password}")
+            print("=" * 70 + "\n")
+            return True
+        
+        try:
+            message = MIMEMultipart("alternative")
+            message["Subject"] = "Actualización de Cuenta - Sistema de Gestión"
+            message["From"] = self.gmail_email
+            message["To"] = recipient_email
+            
+            # Construir HTML de cambios
+            changes_html = ""
+            if changes:
+                changes_html = "<div style='background:#f8f9fa; border:1px solid #dee2e6; padding:15px; border-radius:6px; margin:18px 0;'>"
+                changes_html += "<h3 style='margin-top:0; color:#495057;'>Cambios realizados:</h3>"
+                changes_html += "<ul style='list-style:none; padding:0;'>"
+                for field, value in changes.items():
+                    field_name = {
+                        'nombres': 'Nombres',
+                        'apellidos': 'Apellidos',
+                        'correo': 'Correo electrónico',
+                        'celular': 'Teléfono',
+                        'direccion': 'Dirección',
+                        'nivel': 'Nivel de acceso',
+                        'estado': 'Estado'
+                    }.get(field, field.capitalize())
+                    changes_html += f"<li style='padding:8px 0; border-bottom:1px solid #e9ecef;'><strong>{field_name}:</strong> {value}</li>"
+                changes_html += "</ul>"
+                changes_html += "</div>"
+            
+            # Mostrar credenciales si se cambió la contraseña o rol
+            credentials_html = ""
+            if plain_password or role_name:
+                credentials_html = "<div style='background:#fff3cd; border:1px solid #ffc107; padding:15px; border-radius:6px; margin:18px 0;'>"
+                credentials_html += "<h3 style='margin-top:0; color:#856404;'>⚠️ Credenciales actualizadas:</h3>"
+                if role_name:
+                    credentials_html += f"<p style='margin:8px 0;'><strong>🏷️ Rol:</strong> {role_name}</p>"
+                credentials_html += f"<p style='margin:8px 0;'><strong>📧 Email:</strong> {recipient_email}</p>"
+                if plain_password:
+                    credentials_html += f"<p style='margin:8px 0;'><strong>🔐 Nueva contraseña:</strong> {plain_password}</p>"
+                    credentials_html += "<p style='margin-top:12px; font-size:12px; color:#856404;'><em>Por seguridad, te recomendamos cambiar esta contraseña después de iniciar sesión.</em></p>"
+                credentials_html += "</div>"
+            
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }}
+                    .container {{
+                        background-color: #f9f9f9;
+                        border-radius: 10px;
+                        padding: 30px;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                    }}
+                    .header {{
+                        text-align: center;
+                        color: #2196F3;
+                        margin-bottom: 30px;
+                    }}
+                    .info {{
+                        background-color: #e3f2fd;
+                        border-left: 4px solid #2196F3;
+                        padding: 15px;
+                        margin: 20px 0;
+                    }}
+                    .footer {{
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #ddd;
+                        font-size: 12px;
+                        color: #666;
+                        text-align: center;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>🔄 Actualización de Cuenta</h1>
+                    </div>
+                    
+                    <div class="info">
+                        <p><strong>Hola, {username}!</strong></p>
+                        <p>Tu cuenta ha sido actualizada por un administrador del sistema.</p>
+                    </div>
+                    
+                    {changes_html}
+                    {credentials_html}
+                    
+                    <p style="margin-top:25px;">Si no solicitaste estos cambios o crees que es un error, por favor contacta al administrador del sistema inmediatamente.</p>
+                    
+                    <div class="footer">
+                        <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
+                        <p>&copy; 2025 Sistema de Gestión. Todos los derechos reservados.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Contenido de texto plano (fallback)
+            changes_text = ""
+            if changes:
+                changes_text = "\nCambios realizados:\n"
+                for field, value in changes.items():
+                    changes_text += f"  - {field}: {value}\n"
+            
+            credentials_text = ""
+            if plain_password or role_name:
+                credentials_text = "\nCredenciales actualizadas:\n"
+                if role_name:
+                    credentials_text += f"  Rol: {role_name}\n"
+                credentials_text += f"  Email: {recipient_email}\n"
+                if plain_password:
+                    credentials_text += f"  Nueva contraseña: {plain_password}\n"
+            
+            text_content = f"""
+            Actualización de Cuenta
+            
+            Hola, {username}!
+            
+            Tu cuenta ha sido actualizada por un administrador del sistema.
+            {changes_text}
+            {credentials_text}
+            
+            Si no solicitaste estos cambios, contacta al administrador inmediatamente.
+            """
+            
+            # Adjuntar ambas versiones
+            part1 = MIMEText(text_content, "plain")
+            part2 = MIMEText(html_content, "html")
+            message.attach(part1)
+            message.attach(part2)
+            
+            # Enviar el email vía Gmail
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(self.gmail_email, self.gmail_password)
+                server.send_message(message)
+            
+            print(f"✅ Email de actualización enviado a: {recipient_email}")
+            return True
+            
+        except smtplib.SMTPAuthenticationError:
+            print(f"❌ Error de autenticación Gmail. Verifica tu email y App Password")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"❌ Error al enviar email: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Error al enviar email de actualización: {e}")
+            return False
 
 
 # Instancia singleton del servicio

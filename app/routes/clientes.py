@@ -228,16 +228,26 @@ def actualizar_cliente(
         "celular": cliente.usuario.celular if cliente.usuario else None
     }
 
+    # Rastrear cambios para el email
+    changes = {}
+    plain_password = None
+    
     # Actualizar datos del cliente
     if cliente_update.direccion is not None:
+        if cliente.direccion != cliente_update.direccion:
+            changes['direccion'] = cliente_update.direccion
         cliente.direccion = cliente_update.direccion
     
     # Actualizar datos del usuario si existen
     if cliente.usuario:
         if cliente_update.apellidos:
+            if cliente.usuario.apellidos != cliente_update.apellidos:
+                changes['apellidos'] = cliente_update.apellidos
             cliente.usuario.apellidos = cliente_update.apellidos
         
         if cliente_update.nombres:
+            if cliente.usuario.nombres != cliente_update.nombres:
+                changes['nombres'] = cliente_update.nombres
             cliente.usuario.nombres = cliente_update.nombres
         
         if cliente_update.correo:
@@ -251,12 +261,17 @@ def actualizar_cliente(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"El correo {cliente_update.correo} ya está en uso"
                 )
+            if cliente.usuario.correo != cliente_update.correo:
+                changes['correo'] = cliente_update.correo
             cliente.usuario.correo = cliente_update.correo
         
         if cliente_update.celular is not None:
+            if cliente.usuario.celular != cliente_update.celular:
+                changes['celular'] = cliente_update.celular
             cliente.usuario.celular = cliente_update.celular
         
         if cliente_update.password:
+            plain_password = cliente_update.password
             hashed_password = bcrypt.hashpw(cliente_update.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             cliente.usuario.password = hashed_password
     
@@ -274,6 +289,19 @@ def actualizar_cliente(
     
     db.commit()
     db.refresh(cliente)
+    
+    # Enviar email de notificación si hubo cambios
+    if (changes or plain_password) and cliente.usuario:
+        try:
+            email_service.send_update_notification_email(
+                recipient_email=cliente.usuario.correo,
+                username=f"{cliente.usuario.nombres} {cliente.usuario.apellidos}",
+                changes=changes,
+                plain_password=plain_password,
+                role_name="Cliente"
+            )
+        except Exception as e:
+            print(f"⚠️ No se pudo enviar el email de notificación: {e}")
     
     return ClienteResponse(
         cod_cliente=cliente.cod_cliente,
