@@ -41,10 +41,10 @@ class Usuario(Base):
     email_verificado = Column(Integer, nullable=False, default=0)  # 0 = no verificado, 1 = verificado
 
     # Relación con detalle_sesion
-    detalles_sesion = relationship("DetalleSesion", back_populates="usuario")
+    detalles_sesion = relationship("DetalleSesion", back_populates="usuario", cascade="all, delete")
     
     # Relación con cliente (Uno a Uno)
-    cliente = relationship("Cliente", back_populates="usuario", uselist=False)
+    cliente = relationship("Cliente", back_populates="usuario", uselist=False, cascade="all, delete")
 
     @property
     def cod_cliente(self):

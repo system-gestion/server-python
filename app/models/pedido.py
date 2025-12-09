@@ -29,8 +29,8 @@ class Pedido(Base):
     num_pedido = Column(Integer, primary_key=True, index=True)
     fecha = Column(Date, nullable=False, default=date.today)
     importe = Column(Float, nullable=False, default=0.0)
-    cod_cliente = Column(String(50), ForeignKey("cliente.cod_cliente"), nullable=False)
-    cod_vendedor = Column(Integer, ForeignKey("usuario.cod_usuario"), nullable=False)
+    cod_cliente = Column(String(50), ForeignKey("cliente.cod_cliente", ondelete="CASCADE"), nullable=False)
+    cod_vendedor = Column(Integer, ForeignKey("usuario.cod_usuario", ondelete="CASCADE"), nullable=False)
     estado = Column(Integer, nullable=False, default=1)  # 1=pending, 2=completed, 3=cancelled
 
     # Relaciones

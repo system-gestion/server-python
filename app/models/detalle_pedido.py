@@ -21,8 +21,8 @@ class DetallePedido(Base):
     """
     __tablename__ = "detalle_pedido"
 
-    num_pedido = Column(Integer, ForeignKey("pedido.num_pedido"), primary_key=True)
-    cod_articulo = Column(Integer, ForeignKey("articulo.cod_articulo"), primary_key=True)
+    num_pedido = Column(Integer, ForeignKey("pedido.num_pedido", ondelete="CASCADE"), primary_key=True)
+    cod_articulo = Column(Integer, ForeignKey("articulo.cod_articulo", ondelete="CASCADE"), primary_key=True)
     cantidad = Column(Integer, nullable=False, default=1)
     subtotal = Column(Float, nullable=False, default=0.0)
     estado = Column(Integer, nullable=False, default=1)  # 0 = quitado, 1 = activo

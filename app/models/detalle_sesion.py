@@ -36,8 +36,8 @@ class DetalleSesion(Base):
     hora = Column(Time, nullable=True, default=datetime.now().time)
     datos_json = Column(String, nullable=True)  # Snapshot para rollback (JSON string)
     rollback_realizado = Column(Integer, nullable=False, default=0)  # 0 = no, 1 = sí
-    cod_usuario = Column(Integer, ForeignKey("usuario.cod_usuario"), nullable=False)
-    num_sesion = Column(Integer, ForeignKey("sesion_log.num_sesion"), nullable=False)
+    cod_usuario = Column(Integer, ForeignKey("usuario.cod_usuario", ondelete="CASCADE"), nullable=False)
+    num_sesion = Column(Integer, ForeignKey("sesion_log.num_sesion", ondelete="CASCADE"), nullable=False)
 
     # Relaciones
     usuario = relationship("Usuario", back_populates="detalles_sesion")

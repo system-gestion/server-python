@@ -27,4 +27,4 @@ class SesionLog(Base):
     estado = Column(Integer, nullable=False, default=1)  # 0 = inactivo, 1 = activo
 
     # Relación con detalle_sesion
-    detalles = relationship("DetalleSesion", back_populates="sesion")
+    detalles = relationship("DetalleSesion", back_populates="sesion", cascade="all, delete")

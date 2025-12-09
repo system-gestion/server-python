@@ -32,4 +32,4 @@ class Articulo(Base):
     valor_descuento = Column(Float, nullable=True, default=0.0)
 
     # Relación con detalle_pedido
-    detalles = relationship("DetallePedido", back_populates="articulo")
+    detalles = relationship("DetallePedido", back_populates="articulo", cascade="all, delete")

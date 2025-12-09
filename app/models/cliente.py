@@ -27,8 +27,8 @@ class Cliente(Base):
     direccion = Column(String(300))
     
     # Relación con Usuario
-    cod_usuario = Column(Integer, ForeignKey("usuario.cod_usuario"), nullable=False, unique=True)
+    cod_usuario = Column(Integer, ForeignKey("usuario.cod_usuario", ondelete="CASCADE"), nullable=False, unique=True)
     usuario = relationship("Usuario", back_populates="cliente")
 
     # Relación con pedidos
-    pedidos = relationship("Pedido", back_populates="cliente")
+    pedidos = relationship("Pedido", back_populates="cliente", cascade="all, delete")
